@@ -1,0 +1,2548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cursed Card - Fantasy Deck Expedition (v5)</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700;900&family=Plus+Jakarta+Sans:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: #030712;
+            background-image: 
+                radial-gradient(at 0% 0%, rgba(31, 41, 55, 0.3) 0, transparent 50%),
+                radial-gradient(at 50% 0%, rgba(99, 102, 241, 0.08) 0, transparent 50%),
+                radial-gradient(at 100% 100%, rgba(17, 24, 39, 0.5) 0, transparent 50%);
+            color: #f3f4f6;
+            overflow-x: hidden;
+            user-select: none;
+        }
+
+        .fantasy-font { 
+            font-family: 'Cinzel', serif; 
+            letter-spacing: 0.05em;
+        }
+
+        .ambient-fire {
+            position: fixed;
+            width: 400px;
+            height: 400px;
+            background: radial-gradient(circle, rgba(168, 85, 247, 0.15) 0%, rgba(0, 0, 0, 0) 70%);
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 0;
+            filter: blur(50px);
+            animation: floatGlow 15s infinite alternate ease-in-out;
+        }
+
+        @keyframes floatGlow {
+            0% { transform: translate(-10%, -10%) scale(1); }
+            100% { transform: translate(50%, 30%) scale(1.3); }
+        }
+
+        .card-container { 
+            perspective: 1000px; 
+        }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.34, 1.56, 0.64, 1);
+            transform-style: preserve-3d;
+            cursor: pointer;
+        }
+        .card-inner.flipped { 
+            transform: rotateY(180deg); 
+        }
+        .card-inner.revealed-peek { 
+            filter: brightness(1.25) drop-shadow(0 0 12px rgba(245, 158, 11, 0.6)); 
+            transform: scale(1.05);
+        }
+
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px -5px rgba(0,0,0,0.7);
+            border: 2px solid;
+            transition: border-color 0.3s, transform 0.2s;
+        }
+
+        .card-front {
+            background: linear-gradient(135deg, #1f2937, #111827);
+            border-color: #374151;
+            font-weight: 800;
+            color: #4b5563;
+        }
+
+        .card-front:hover {
+            border-color: rgba(99, 102, 241, 0.5);
+            color: #818cf8;
+            transform: translateY(-4px);
+            box-shadow: 0 15px 30px -10px rgba(99, 102, 241, 0.4);
+        }
+
+        .card-back { 
+            transform: rotateY(180deg); 
+        }
+
+        .type-safe { background: linear-gradient(135deg, #064e3b, #022c22); border-color: #10b981; color: #34d399; }
+        .type-gold { background: linear-gradient(135deg, #451a03, #292524); border-color: #f59e0b; color: #fbbf24; }
+        .type-skull { background: linear-gradient(135deg, #4c0519, #2d0612); border-color: #f43f5e; color: #fda4af; }
+        .type-heal { background: linear-gradient(135deg, #1e3a8a, #172554); border-color: #3b82f6; color: #93c5fd; }
+        .type-void { background: linear-gradient(135deg, #1c1917, #0c0a09); border-color: #78716c; color: #d6d3d1; }
+        .type-chaos { background: linear-gradient(135deg, #3b0764, #1e1b4b); border-color: #a855f7; color: #e9d5ff; }
+        .type-thief { background: linear-gradient(135deg, #1e1b4b, #111827); border-color: #6366f1; color: #c7d2fe; }
+        .type-crystal { background: linear-gradient(135deg, #0d9488, #115e59); border-color: #2dd4bf; color: #ccfbf1; }
+        .type-venom { background: linear-gradient(135deg, #14532d, #1c1917); border-color: #84cc16; color: #d9f99d; }
+        .type-rift { background: linear-gradient(135deg, #030712, #1e1b4b); border-color: #818cf8; color: #e0e7ff; }
+        .type-mend { background: linear-gradient(135deg, #0369a1, #0c4a6e); border-color: #38bdf8; color: #e0f2fe; }
+        .type-wind { background: linear-gradient(135deg, #0c4a6e, #0f172a); border-color: #0ea5e9; color: #e0f2fe; }
+        .type-barrier { background: linear-gradient(135deg, #1f2937, #1c1917); border-color: #f472b6; color: #fce7f3; }
+        .type-fortune { background: linear-gradient(135deg, #78350f, #292524); border-color: #fbbf24; color: #fef3c7; }
+        .type-phantom { background: linear-gradient(135deg, #312e81, #1e1b4b); border-color: #c084fc; color: #f3e8ff; }
+        .type-oracle { background: linear-gradient(135deg, #1f2937, #111827); border-color: #f472b6; color: #fce7f3; }
+        .type-bulletdrop { background: linear-gradient(135deg, #78350f, #451a03); border-color: #ea580c; color: #fed7aa; }
+        .type-swap { background: linear-gradient(135deg, #31103f, #180924); border-color: #d946ef; color: #f5d0fe; }
+        .type-coinboost { background: linear-gradient(135deg, #581c87, #2e1065); border-color: #c084fc; color: #f3e8ff; }
+        /* New card types */
+        .type-inferno { background: linear-gradient(135deg, #7f1d1d, #450a0a); border-color: #ef4444; color: #fca5a5; }
+        .type-blessing { background: linear-gradient(135deg, #065f46, #042f2e); border-color: #34d399; color: #a7f3d0; }
+        .type-plunder { background: linear-gradient(135deg, #3730a3, #1e1b4b); border-color: #818cf8; color: #c7d2fe; }
+        .type-doom { background: linear-gradient(135deg, #18181b, #09090b); border-color: #71717a; color: #d4d4d8; }
+
+        .active-player-glow {
+            box-shadow: 0 0 35px rgba(99, 102, 241, 0.4);
+            border: 2px solid #818cf8 !important;
+            transform: scale(1.02);
+            background: linear-gradient(135deg, #1e1b4b, #0f172a) !important;
+        }
+
+        .custom-tab.active {
+            color: #38bdf8;
+            border-bottom-color: #38bdf8;
+            background: rgba(56, 189, 248, 0.05);
+        }
+
+        .scroll-container::-webkit-scrollbar { width: 6px; height: 6px; }
+        .scroll-container::-webkit-scrollbar-track { background: rgba(15, 23, 42, 0.3); }
+        .scroll-container::-webkit-scrollbar-thumb { background: #334155; border-radius: 8px; }
+        .scroll-container::-webkit-scrollbar-thumb:hover { background: #475569; }
+
+        @keyframes gold-glitter {
+            0%, 100% { text-shadow: 0 0 5px rgba(245, 158, 11, 0.3); }
+            50% { text-shadow: 0 0 15px rgba(245, 158, 11, 0.8), 0 0 25px rgba(245, 158, 11, 0.4); }
+        }
+        .gold-anim { animation: gold-glitter 2s infinite; }
+
+        @keyframes shotBounce {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.15) rotate(5deg); filter: brightness(1.5); }
+            100% { transform: scale(1); }
+        }
+        .shotgun-firing { animation: shotBounce 0.3s ease-in-out; }
+
+        .screen {
+            transition: opacity 0.4s cubic-bezier(0.4, 0, 0.2, 1), transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col p-4 md:p-6 pb-12 relative">
+    
+    <div class="ambient-fire top-20 left-10"></div>
+    <div class="ambient-fire bottom-20 right-10" style="animation-delay: -5s; background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, rgba(0, 0, 0, 0) 70%);"></div>
+
+    <!-- MAIN MENU SCREEN -->
+    <div id="menu-screen" class="screen flex-1 flex flex-col items-center justify-center max-w-6xl mx-auto w-full pt-6 relative z-10">
+        
+        <header class="text-center mb-8 relative">
+            <div class="text-xs uppercase tracking-[0.4em] text-indigo-400 font-bold mb-3">Mystical Board Expedition</div>
+            <h1 class="text-6xl md:text-8xl fantasy-font text-center font-black mb-4 text-transparent bg-clip-text bg-gradient-to-b from-amber-100 via-yellow-400 to-amber-700 drop-shadow-2xl">
+                CURSED CARD
+            </h1>
+            <p class="text-slate-400 max-w-md mx-auto text-sm italic font-light tracking-wide">
+                "Step forward into the shroud. Equip your shotgun, draft relics, and survive."
+            </p>
+        </header>
+
+        <!-- ONLINE MODE PANEL (v6 Online) -->
+        <div class="w-full max-w-2xl mb-8">
+            <button onclick="toggleOnlinePanel()" class="group bg-gradient-to-r from-indigo-950/60 to-purple-950/60 hover:from-indigo-900/60 hover:to-purple-900/60 border border-indigo-800/50 hover:border-indigo-500/60 w-full p-4 rounded-2xl transition-all text-left flex items-center justify-between">
+                <span class="flex items-center gap-3">
+                    <span class="p-2.5 bg-indigo-950/60 text-indigo-300 rounded-xl border border-indigo-800/50">
+                        <i class="fas fa-tower-broadcast"></i>
+                    </span>
+                    <span>
+                        <strong class="text-sm block text-slate-100">Play Online <span class="text-[9px] bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.5 rounded-md font-mono normal-case tracking-wide ml-1">v6 · Online</span></strong>
+                        <span class="text-xs text-slate-400">Host a room or join a friend's expedition from another device.</span>
+                    </span>
+                </span>
+                <i class="fas fa-chevron-down text-slate-500 group-hover:text-indigo-400 transition-colors" id="online-panel-chevron"></i>
+            </button>
+
+            <div id="online-panel" class="hidden bg-slate-900/90 border border-indigo-900/40 rounded-3xl p-5 mt-3 shadow-2xl">
+                <div id="online-setup-warning" class="hidden bg-amber-950/40 border border-amber-800/50 text-amber-300 text-xs rounded-xl p-3 mb-4 leading-relaxed">
+                    <i class="fas fa-triangle-exclamation mr-1"></i>
+                    Online play needs Firestore enabled. In Firebase Console open project <code class="bg-black/30 px-1 rounded">cursedcardbyotpsnn</code> → Build → Firestore Database → Create database (test mode), then set rules to <code class="bg-black/30 px-1 rounded">allow read, write: if true;</code>
+                </div>
+                <div id="online-error" class="hidden bg-rose-950/50 border border-rose-700/60 text-rose-200 text-xs rounded-xl p-3 mb-4 leading-relaxed whitespace-pre-wrap"></div>
+
+                <div id="online-idle-view" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-slate-950/60 border border-slate-800/70 rounded-2xl p-4">
+                        <h4 class="text-xs uppercase tracking-widest font-bold text-indigo-300 mb-2 flex items-center gap-2"><i class="fas fa-crown"></i> Host a Room</h4>
+                        <p class="text-slate-500 text-[11px] mb-3">You'll set up the expedition as usual — party, classes, shops, mode — then share the room code so others can watch and play live.</p>
+                        <button id="create-room-btn" type="button" onclick="hostOnlineGame()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-sm py-2.5 rounded-xl transition-all">Create Room</button>
+                    </div>
+                    <div class="bg-slate-950/60 border border-slate-800/70 rounded-2xl p-4">
+                        <h4 class="text-xs uppercase tracking-widest font-bold text-purple-300 mb-2 flex items-center gap-2"><i class="fas fa-right-to-bracket"></i> Join a Room</h4>
+                        <div class="flex flex-col gap-2 mb-3">
+                            <input id="join-room-code" type="text" maxlength="6" placeholder="Room Code (e.g. AB3XQ)" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white uppercase tracking-widest text-center focus:outline-none focus:border-purple-500" />
+                            <select id="join-player-seat" class="bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-purple-500">
+                                <option value="1">I am Explorer 1</option>
+                                <option value="2" selected>I am Explorer 2</option>
+                                <option value="3">I am Explorer 3</option>
+                                <option value="4">I am Explorer 4</option>
+                                <option value="5">I am Explorer 5</option>
+                                <option value="6">I am Explorer 6</option>
+                            </select>
+                        </div>
+                        <button onclick="joinOnlineGame()" class="w-full bg-purple-600 hover:bg-purple-500 text-white font-bold text-sm py-2.5 rounded-xl transition-all">Join Room</button>
+                    </div>
+                </div>
+
+                <div id="online-status-view" class="hidden text-center py-3">
+                    <div id="online-status-text" class="text-sm text-slate-200 font-bold mb-2"></div>
+                    <div id="online-room-code-display" class="text-3xl fantasy-font tracking-[0.3em] text-indigo-300 mb-3"></div>
+                    <button onclick="leaveOnlineSession()" class="bg-rose-950/60 hover:bg-rose-900 border border-rose-800/50 text-rose-300 text-xs font-bold px-4 py-2 rounded-xl transition-all">
+                        <i class="fas fa-plug-circle-xmark mr-1"></i> Disconnect
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- STEP 1: Interactive Character / Player Count Selector -->
+        <section class="bg-slate-900/85 backdrop-blur-md p-6 rounded-3xl border border-slate-800/80 mb-8 w-full shadow-2xl">
+            <h3 class="text-lg font-bold tracking-widest text-slate-300 text-center uppercase mb-5 flex items-center justify-center gap-3">
+                <span class="w-8 h-[1px] bg-indigo-500/50"></span>
+                Assemble Your Party
+                <span class="w-8 h-[1px] bg-indigo-500/50"></span>
+            </h3>
+
+            <div class="flex flex-col items-center gap-4 mb-8">
+                <div class="text-slate-400 text-xs uppercase tracking-wider">Number of Explorers</div>
+                <div class="flex flex-wrap justify-center gap-2 max-w-xl">
+                    <button onclick="selectPlayers(1)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300">1 Explorer</button>
+                    <button onclick="selectPlayers(2)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-indigo-600/30 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]">2 Explorers</button>
+                    <button onclick="selectPlayers(3)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300">3 Explorers</button>
+                    <button onclick="selectPlayers(4)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300">4 Explorers</button>
+                    <button onclick="selectPlayers(5)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300">5 Explorers</button>
+                    <button onclick="selectPlayers(6)" class="player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300">6 Explorers</button>
+                </div>
+            </div>
+
+            <div id="character-selection-area" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4"></div>
+        </section>
+
+        <!-- STEP 2: Expedition Mode Selector -->
+        <div class="w-full">
+            <h3 class="text-lg font-bold tracking-widest text-slate-300 text-center uppercase mb-6 flex items-center justify-center gap-3">
+                <span class="w-8 h-[1px] bg-amber-500/50"></span>
+                Choose Expedition Path & Personal Shop Setup
+                <span class="w-8 h-[1px] bg-amber-500/50"></span>
+            </h3>
+
+            <!-- Shop Deck Customizer (Each player picks 5 shop items) -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-3xl p-6 mb-8 shadow-2xl">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h4 class="text-sm fantasy-font text-amber-400 font-bold uppercase tracking-wider flex items-center gap-2">
+                            Merchant Inventory Deck Construction
+                            <span class="text-[9px] bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 px-1.5 py-0.5 rounded-md font-mono normal-case tracking-wide">v6 · Rebalanced</span>
+                        </h4>
+                        <p class="text-slate-400 text-xs">Each explorer must choose exactly 5 unique relics to stock in their shop.</p>
+                    </div>
+                    <div id="shop-picker-status" class="text-xs font-bold text-indigo-400 font-mono bg-indigo-950/40 border border-indigo-900/50 px-3 py-1.5 rounded-xl">
+                        Configuring P1 (Select 5)
+                    </div>
+                </div>
+
+                <div class="flex gap-2 mb-4 overflow-x-auto pb-2" id="shop-picker-tabs"></div>
+                <div id="shop-picker-grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3 max-h-72 overflow-y-auto pr-2 scroll-container"></div>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 w-full">
+                <!-- Classic Run -->
+                <button onclick="startExpedition('classic')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-indigo-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-indigo-400">
+                        <i class="fas fa-scroll"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-indigo-400 font-bold font-mono">Standard</span>
+                            <span class="text-emerald-400 text-xs border border-emerald-500/30 px-2 py-0.5 rounded-full">Fair</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-indigo-400 transition-colors">Classic Run</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">100 Cards. Balanced rewards, rare bullets, standard shop rules.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Normal | Deck: 100</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+                
+                <!-- Blitz Duel -->
+                <button onclick="startExpedition('blitz')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-amber-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-amber-400">
+                        <i class="fas fa-bolt"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-amber-400 font-bold font-mono">Timed Action</span>
+                            <span class="text-amber-400 text-xs border border-amber-500/30 px-2 py-0.5 rounded-full">30s Turn Limit</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-amber-400 transition-colors">Blitz Duel</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">50 Cards. High-yield gold drops, strict 30s turn time limit, volatile events.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Normal | Deck: 50</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+
+                <!-- Hardcore -->
+                <button onclick="startExpedition('hardcore')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-rose-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-rose-500">
+                        <i class="fas fa-skull"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-rose-400 font-bold font-mono">Expert</span>
+                            <span class="text-rose-500 text-xs border border-rose-500/30 px-2 py-0.5 rounded-full font-bold">1 Heart</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-rose-400 transition-colors">Hardcore Trial</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">100 Cards. Begin with only 1 Life Heart. Extreme risk, ultimate execution.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: 1 Heart | Deck: 100</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+
+                <!-- Chaos Mode -->
+                <button onclick="startExpedition('chaos')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-purple-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-purple-400">
+                        <i class="fas fa-ghost"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-purple-400 font-bold font-mono">Unstable</span>
+                            <span class="text-purple-400 text-xs border border-purple-500/30 px-2 py-0.5 rounded-full">Volatile</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-purple-400 transition-colors">Chaos Mode</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">100 Cards. Every secret variant of card enabled including new Inferno and Doom tiles.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Random | Deck: 100</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+
+                <!-- Treasure Hunt -->
+                <button onclick="startExpedition('treasure')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-teal-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-teal-400">
+                        <i class="fas fa-gem"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-teal-400 font-bold font-mono">Prosperity</span>
+                            <span class="text-emerald-400 text-xs border border-emerald-500/30 px-2 py-0.5 rounded-full">Wealthy</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-teal-400 transition-colors">Treasure Hunt</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">80 Cards. Abundant relics, high merchant presence, plus Swap Card active on board.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Normal | Deck: 80</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+
+                <!-- Nightmare Rush -->
+                <button onclick="startExpedition('nightmare')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-red-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-red-500">
+                        <i class="fas fa-moon"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-rose-500 font-bold font-mono">Brutal</span>
+                            <span class="text-red-500 text-xs border border-red-500/30 px-2 py-0.5 rounded-full">Punishing</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-red-400 transition-colors">Nightmare Rush</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">100 Cards. Heavily infested with venom, skull traps, inferno, and portal rifts.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Reduced | Deck: 100</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+
+                <!-- Bloodmoon Siege -->
+                <button onclick="startExpedition('bloodmoon')" class="group relative bg-slate-900/60 hover:bg-slate-900 border border-slate-800 hover:border-orange-500/50 p-6 rounded-2xl transition-all text-left flex flex-col justify-between overflow-hidden">
+                    <div class="absolute -right-6 -bottom-6 opacity-5 group-hover:opacity-10 transition-opacity text-8xl text-orange-500">
+                        <i class="fas fa-crosshairs"></i>
+                    </div>
+                    <div>
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs uppercase tracking-wider text-orange-400 font-bold font-mono">PvP Focused</span>
+                            <span class="text-orange-500 text-xs border border-orange-500/30 px-2 py-0.5 rounded-full font-bold">2 Bullets Start</span>
+                        </div>
+                        <h4 class="text-2xl fantasy-font text-slate-100 group-hover:text-orange-400 transition-colors">Bloodmoon Siege</h4>
+                        <p class="text-slate-400 text-xs mt-2 leading-relaxed">70 Cards. Everyone starts armed with 2 bullets. Loaded with ammo caches, low economy, high aggression.</p>
+                    </div>
+                    <div class="mt-4 pt-4 border-t border-slate-800/80 flex items-center justify-between w-full">
+                        <span class="text-[10px] text-slate-500">HP: Normal | Deck: 70</span>
+                        <i class="fas fa-arrow-right text-xs text-slate-500 group-hover:translate-x-1 transition-transform"></i>
+                    </div>
+                </button>
+            </div>
+        </div>
+
+        <!-- Custom Expedition Config Toggle Button -->
+        <button onclick="toggleCustomOptions()" class="mt-6 group bg-slate-900/40 hover:bg-slate-900 border border-slate-800 hover:border-cyan-500/50 w-full p-4 rounded-2xl transition-all text-left flex items-center justify-between">
+            <span class="flex items-center gap-3">
+                <span class="p-2.5 bg-cyan-950/50 text-cyan-400 rounded-xl border border-cyan-800/50">
+                    <i class="fas fa-sliders"></i>
+                </span>
+                <span>
+                    <strong class="text-sm block text-slate-200">Configure Custom Settings</strong>
+                    <span class="text-xs text-slate-400">Tune hearts, deck size, economy, bullets, timer, and shotgun rules.</span>
+                </span>
+            </span>
+            <i class="fas fa-chevron-right text-slate-500 group-hover:text-cyan-400 transition-colors"></i>
+        </button>
+
+        <div id="custom-options" class="hidden bg-slate-900/90 border border-slate-800 rounded-3xl p-6 mt-6 w-full shadow-2xl relative">
+            <h3 class="text-xl fantasy-font text-cyan-400 mb-2 flex items-center gap-2">
+                <i class="fas fa-gears text-sm"></i>
+                Custom Expedition Blueprint
+                <span class="text-[9px] bg-fuchsia-500/10 text-fuchsia-400 border border-fuchsia-500/30 px-1.5 py-0.5 rounded-md font-mono normal-case tracking-wide">Mode+</span>
+            </h3>
+            <p class="text-slate-500 text-xs mb-6">Tune every dial, sculpt your own card index, then save the whole blueprint to reuse later.</p>
+
+            <!-- Saved Blueprint Manager -->
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4 mb-6">
+                <div class="flex items-center gap-2 mb-3">
+                    <i class="fas fa-floppy-disk text-fuchsia-400 text-sm"></i>
+                    <h4 class="text-xs uppercase tracking-widest font-bold text-slate-300">Saved Blueprints</h4>
+                </div>
+                <div class="flex flex-col sm:flex-row gap-2 mb-3">
+                    <input id="blueprint-name-input" type="text" maxlength="40" placeholder="Name this blueprint..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl p-2.5 text-sm text-white focus:outline-none focus:border-fuchsia-500" />
+                    <button onclick="saveCustomBlueprint()" class="bg-fuchsia-600/80 hover:bg-fuchsia-500 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap">
+                        <i class="fas fa-save"></i> Save Blueprint
+                    </button>
+                    <button onclick="importBlueprintPrompt()" class="bg-slate-850 hover:bg-slate-800 border border-slate-800 text-slate-300 text-xs font-bold px-4 py-2.5 rounded-xl transition-all flex items-center gap-2 whitespace-nowrap">
+                        <i class="fas fa-file-import"></i> Import
+                    </button>
+                </div>
+                <div id="blueprint-list" class="flex flex-col gap-1.5 max-h-40 overflow-y-auto pr-1 scroll-container"></div>
+            </div>
+            
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Starter Hearts</span>
+                    <input id="custom-starter-hearts" type="number" min="1" max="10" value="4" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Deck Card Size</span>
+                    <input id="custom-deck-size" type="number" min="10" max="150" value="60" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Starting Gold Pile</span>
+                    <input id="custom-start-gold" type="number" min="0" max="999" value="20" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Starting Shotgun Bullets</span>
+                    <input id="custom-start-bullets" type="number" min="0" max="15" value="0" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Base Coin Multiplier</span>
+                    <input id="custom-start-mult" type="number" step="0.05" min="0.5" max="5.0" value="1.00" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Turn Timer (0 = Off)</span>
+                    <input id="custom-turn-time" type="number" min="0" max="120" value="0" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Shotgun Cost</span>
+                    <input id="custom-shotgun-cost" type="number" min="1" max="5" value="2" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+                <label class="flex flex-col gap-2 text-slate-300 text-xs uppercase tracking-wider">
+                    <span>Shotgun Cooldown (turns)</span>
+                    <input id="custom-shotgun-cooldown" type="number" min="0" max="5" value="2" class="bg-slate-950 border border-slate-800 rounded-xl p-3 text-white focus:outline-none focus:border-cyan-500 w-full" />
+                </label>
+            </div>
+
+            <!-- Custom Card Index Editor -->
+            <div class="bg-slate-950/60 border border-slate-800/80 rounded-2xl p-4">
+                <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                    <div class="flex items-center gap-2">
+                        <i class="fas fa-layer-group text-fuchsia-400 text-sm"></i>
+                        <h4 class="text-xs uppercase tracking-widest font-bold text-slate-300">Custom Card Index</h4>
+                    </div>
+                    <div id="card-index-total" class="text-[10px] font-mono text-slate-400 bg-slate-900 border border-slate-800 px-2.5 py-1 rounded-lg">Total Weight: 0</div>
+                </div>
+                <p class="text-slate-500 text-[11px] mb-3">Set the relative weight of every card type in the deck. Higher weight = more common. Set a type to 0 to remove it entirely.</p>
+
+                <div class="flex flex-wrap gap-1.5 mb-4" id="card-index-presets">
+                    <button onclick="applyCardIndexPreset('classic')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-indigo-950/50 border border-indigo-800/60 text-indigo-300 hover:bg-indigo-900/50 transition-all">Classic Balance</button>
+                    <button onclick="applyCardIndexPreset('danger')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-rose-950/50 border border-rose-800/60 text-rose-300 hover:bg-rose-900/50 transition-all">Danger Surge</button>
+                    <button onclick="applyCardIndexPreset('treasure')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-amber-950/50 border border-amber-800/60 text-amber-300 hover:bg-amber-900/50 transition-all">Treasure Rush</button>
+                    <button onclick="applyCardIndexPreset('chaos')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-purple-950/50 border border-purple-800/60 text-purple-300 hover:bg-purple-900/50 transition-all">Pure Chaos</button>
+                    <button onclick="applyCardIndexPreset('randomize')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-teal-950/50 border border-teal-800/60 text-teal-300 hover:bg-teal-900/50 transition-all"><i class="fas fa-dice mr-1"></i>Randomize</button>
+                    <button onclick="applyCardIndexPreset('clear')" class="text-[10px] font-bold uppercase tracking-wide px-3 py-1.5 rounded-lg bg-slate-900 border border-slate-800 text-slate-400 hover:bg-slate-800 transition-all">Clear All</button>
+                </div>
+
+                <div id="card-index-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2.5 max-h-80 overflow-y-auto pr-1 scroll-container"></div>
+            </div>
+            
+            <div class="flex gap-2 mt-6">
+                <button onclick="hideCustomOptions()" class="bg-slate-850 hover:bg-slate-800 border border-slate-800 text-slate-300 py-3 px-6 rounded-2xl transition-all">Cancel</button>
+                <button onclick="startExpedition('custom')" class="bg-cyan-500 hover:bg-cyan-400 text-slate-950 font-bold py-3 px-6 rounded-2xl transition-all flex-1">Embark with Custom Blueprint</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME SCREEN -->
+    <div id="game-screen" class="screen hidden-screen hidden flex-1 flex flex-col relative z-10 max-w-7xl mx-auto w-full">
+        
+        <header class="flex flex-col md:flex-row justify-between items-center gap-3 mb-6 border-b border-slate-800/60 pb-5">
+            <div class="flex items-center gap-4">
+                <button onclick="backToMenu()" class="text-slate-500 hover:text-white bg-slate-900/50 hover:bg-slate-900 border border-slate-800 px-4 py-2 rounded-xl text-sm transition-all flex items-center gap-2">
+                    <i class="fas fa-arrow-left"></i> Abandon
+                </button>
+                <div class="h-6 w-[1px] bg-slate-800"></div>
+                <div class="text-slate-400 text-xs tracking-wider">EXPEDITION MODE: <span id="game-mode-label" class="font-bold text-indigo-400">Classic</span></div>
+            </div>
+            <h2 class="text-2xl fantasy-font text-transparent bg-clip-text bg-gradient-to-r from-amber-400 to-yellow-500 font-bold">The Expedition Board</h2>
+            <div class="flex items-center gap-4">
+                <div id="turn-timer-display" class="hidden text-xs font-mono font-bold px-3 py-1 bg-amber-500/20 text-amber-400 border border-amber-500/30 rounded-xl">
+                    Time: <span id="timer-val">30</span>s
+                </div>
+                <span class="text-xs font-mono text-slate-500">Cards Remaining: <span id="deck-counter" class="text-amber-500 font-bold">100</span></span>
+            </div>
+        </header>
+
+        <!-- Player Profiles -->
+        <div id="players-container" class="grid gap-4 w-full mb-6"></div>
+
+        <main class="flex-1 flex flex-col lg:flex-row gap-6 items-stretch overflow-hidden">
+            <!-- Tabletop Grid Board -->
+            <div class="flex-1 flex flex-col bg-slate-900/30 backdrop-blur-sm rounded-3xl border border-slate-800/80 p-5 shadow-2xl relative">
+                
+                <div id="status-bar" class="mb-4 text-center font-bold text-base uppercase tracking-widest text-indigo-300 bg-indigo-950/20 py-2 border border-indigo-900/20 rounded-xl">
+                    Prepare your expedition...
+                </div>
+
+                <div class="scroll-container overflow-y-auto flex-1 pr-1" style="max-height: calc(100vh - 420px); min-height: 380px;">
+                    <div id="grid" class="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-10 gap-3"></div>
+                </div>
+
+                <div class="mt-4 pt-4 border-t border-slate-800/80">
+                    <div class="flex items-center justify-between mb-2">
+                        <div class="text-[10px] text-slate-500 uppercase tracking-widest font-bold">Journal of Travels</div>
+                        <button onclick="clearJournal()" class="text-[10px] text-slate-600 hover:text-slate-400 transition-colors">Clear</button>
+                    </div>
+                    <div id="game-log" class="scroll-container overflow-y-auto text-xs text-slate-500 space-y-1 pr-2 max-h-24 font-mono leading-relaxed"></div>
+                </div>
+            </div>
+
+            <!-- Relic Merchant Shop -->
+            <div class="w-full lg:w-80 bg-slate-900/40 backdrop-blur-sm p-5 rounded-3xl border border-slate-800/80 flex flex-col shadow-2xl">
+                <div class="text-center border-b border-slate-800/80 pb-4 mb-4">
+                    <div class="text-amber-400 text-xs uppercase tracking-widest font-bold mb-1">Travelling Vendor</div>
+                    <h3 class="fantasy-font text-xl text-slate-100 flex items-center justify-center gap-2">
+                        <i class="fas fa-store-alt text-amber-500"></i>
+                        The Arcane Shop
+                    </h3>
+                </div>
+
+                <div class="bg-slate-950/40 p-3 rounded-2xl border border-slate-800/50 mb-4 flex items-center justify-between text-xs">
+                    <span class="text-slate-400">Current Buyer:</span>
+                    <strong id="shop-buyer-name" class="text-indigo-400">EXPLORER</strong>
+                    <div class="flex items-center gap-1.5 text-amber-400 font-bold">
+                        <i class="fas fa-coins text-[10px]"></i> <span id="shop-buyer-gold">0</span>
+                    </div>
+                </div>
+
+                <div id="shop-container" class="flex flex-col gap-2.5 overflow-y-auto pr-1 flex-1 scroll-container max-h-[460px]"></div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Turn transition overlay -->
+    <div id="turn-overlay" class="fixed inset-0 z-40 bg-black/80 flex items-center justify-center opacity-0 pointer-events-none transition-opacity duration-300">
+        <div class="text-center">
+            <div class="text-xs uppercase tracking-[0.4em] text-indigo-400 font-bold mb-3">Expedition Turn</div>
+            <h2 id="turn-text" class="fantasy-font text-5xl md:text-7xl font-bold tracking-wide"></h2>
+        </div>
+    </div>
+
+    <!-- Completion Modal dialog -->
+    <div id="end-modal" class="fixed inset-0 z-50 bg-slate-950/95 flex items-center justify-center hidden p-6 backdrop-blur-md">
+        <div class="bg-slate-900/80 border border-amber-500 p-8 rounded-3xl max-w-md w-full text-center shadow-2xl relative overflow-hidden">
+            <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r from-amber-500 to-yellow-300"></div>
+            <div id="modal-icon" class="text-6xl mb-4 text-amber-500"></div>
+            <h2 id="modal-title" class="fantasy-font text-3xl mb-3 text-slate-100 font-black"></h2>
+            <p id="modal-body" class="text-slate-400 text-sm mb-6 leading-relaxed"></p>
+            <button onclick="backToMenu()" class="w-full bg-gradient-to-r from-amber-600 to-yellow-600 hover:from-amber-500 hover:to-yellow-500 text-slate-950 font-bold py-3.5 rounded-xl shadow-lg transition-all text-sm uppercase tracking-wider">
+                Depart for Town
+            </button>
+        </div>
+    </div>
+
+    <script>
+        const menuScreen = document.getElementById('menu-screen');
+        const gameScreen = document.getElementById('game-screen');
+        const grid = document.getElementById('grid');
+        const statusBar = document.getElementById('status-bar');
+        const gameLog = document.getElementById('game-log');
+        const turnOverlay = document.getElementById('turn-overlay');
+        const turnText = document.getElementById('turn-text');
+
+        const HERO_CLASSES = [
+            { id: 'rogue', name: 'Rogue', icon: 'fa-user-ninja', color: '#10b981', hp: 3, gold: 25, desc: 'Starts with extra gold.' },
+            { id: 'paladin', name: 'Paladin', icon: 'fa-shield-halved', color: '#3b82f6', hp: 4, gold: 10, desc: 'Extra Life Heart starting health.' },
+            { id: 'mage', name: 'Mage', icon: 'fa-wand-magic-sparkles', color: '#a855f7', hp: 3, gold: 15, desc: 'Starts with 1 Scanner spell.' },
+            { id: 'alchemist', name: 'Alchemist', icon: 'fa-flask-vial', color: '#fb923c', hp: 3, gold: 15, desc: 'Earns 2 bonus gold on Gold tiles.' },
+            { id: 'gunslinger', name: 'Gunslinger', icon: 'fa-crosshairs', color: '#ef4444', hp: 3, gold: 10, desc: 'Starts with 2 shotgun bullets.' },
+            { id: 'necromancer', name: 'Necromancer', icon: 'fa-skull', color: '#8b5cf6', hp: 2, gold: 20, desc: 'Siphons life on skull discoveries.' },
+            { id: 'berserker', name: 'Berserker', icon: 'fa-fire-flame-curved', color: '#f97316', hp: 3, gold: 5, desc: 'Coin multiplier x1.25 innate.' },
+            { id: 'druid', name: 'Druid', icon: 'fa-leaf', color: '#22c55e', hp: 3, gold: 15, desc: 'Immune to Venom\'s freeze effect.' },
+            { id: 'assassin', name: 'Assassin', icon: 'fa-user-secret', color: '#64748b', hp: 3, gold: 12, desc: 'Shotgun costs only 2 bullets, 1-turn cooldown.' }
+        ];
+
+        let currentPlayer = 1;
+        let gameActive = false;
+        let turnLocked = false;
+        let currentMode = 'classic';
+        let numPlayers = 2;
+        let activePlayers = [];
+        let extraTurnActive = false;
+        let playerSetups = [];
+        let turnTimer = null;
+        let timeLeft = 0;
+        
+        const state = {};
+
+        // ============ ONLINE MODE (v6) ============
+        // Paste your Firebase project's config below to enable online play.
+        // Create a free project at https://console.firebase.google.com, enable
+        // "Firestore Database" (start in test mode), then Project Settings ->
+        // General -> "Your apps" -> Web app to get these values.
+        // Use the compat SDK already loaded in <head> (firebase.initializeApp / firebase.firestore).
+        // Do NOT paste Firebase Console's `import { initializeApp } from "firebase/app"` snippet —
+        // that only works in a bundler/module project, not this single HTML file.
+        const firebaseConfig = {
+            apiKey: "AIzaSyCAs2_nRX9mzM_e0hu3Y3lGTqBjCuPsisQ",
+            authDomain: "cursedcardbyotpsnn.firebaseapp.com",
+            projectId: "cursedcardbyotpsnn",
+            storageBucket: "cursedcardbyotpsnn.firebasestorage.app",
+            messagingSenderId: "55235993705",
+            appId: "1:55235993705:web:297658c5f1d7959ff402f8",
+            measurementId: "G-83YQN8VCS2"
+        };
+
+        let firebaseReady = false;
+        let db = null;
+        try {
+            if (firebaseConfig.apiKey && firebaseConfig.apiKey !== "YOUR_API_KEY" && typeof firebase !== 'undefined') {
+                firebase.initializeApp(firebaseConfig);
+                db = firebase.firestore();
+                // Long polling avoids a common hang where Create Room never returns on file:// or blocked WebChannel.
+                try { db.settings({ experimentalForceLongPolling: true, merge: true }); } catch (settingsErr) {}
+                firebaseReady = true;
+            }
+        } catch (e) {
+            console.warn('Firebase not configured / failed to init:', e);
+            firebaseReady = false;
+        }
+
+        let onlineMode = false;
+        let isHost = false;
+        let myPlayerNo = null;
+        let roomCode = null;
+        let roomDocRef = null;
+        let roomUnsub = null;
+        let actionsUnsub = null;
+        let guestBoardBuilt = false;
+        let guestEndShown = false;
+
+        function generateRoomCode() {
+            const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+            let code = '';
+            for (let i = 0; i < 5; i++) code += chars[Math.floor(Math.random() * chars.length)];
+            return code;
+        }
+
+        function toggleOnlinePanel() {
+            const panel = document.getElementById('online-panel');
+            const chevron = document.getElementById('online-panel-chevron');
+            panel.classList.toggle('hidden');
+            chevron.classList.toggle('fa-chevron-down');
+            chevron.classList.toggle('fa-chevron-up');
+            document.getElementById('online-setup-warning').classList.toggle('hidden', firebaseReady);
+        }
+
+        function showOnlineStatusView(statusText, codeText) {
+            document.getElementById('online-idle-view').classList.add('hidden');
+            const statusView = document.getElementById('online-status-view');
+            statusView.classList.remove('hidden');
+            document.getElementById('online-status-text').innerText = statusText;
+            document.getElementById('online-room-code-display').innerText = codeText || '';
+        }
+
+        function showOnlineError(msg) {
+            const el = document.getElementById('online-error');
+            if (!el) {
+                alert(msg);
+                return;
+            }
+            el.classList.remove('hidden');
+            el.textContent = msg;
+        }
+
+        function firestoreErrorHint(err) {
+            const msg = (err && (err.message || err.code)) ? (err.code ? err.code + ': ' : '') + (err.message || err) : String(err);
+            return msg + '\n\nFix in Firebase Console (cursedcardbyotpsnn):\n1) Build → Firestore Database → Create database if missing (start in test mode).\n2) Rules tab, publish:\n   match /{document=**} { allow read, write: if true; }\n3) Open this game as http:// (or GitHub Pages), not a random blocked tab.';
+        }
+
+        function withTimeout(promise, ms, label) {
+            return Promise.race([
+                promise,
+                new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timed out after ' + (ms / 1000) + 's. Firestore is probably not created, rules are denying writes, or the page was opened as a local file. Host it (GitHub Pages) or enable Firestore.')), ms))
+            ]);
+        }
+
+        function hostOnlineGame() {
+            const btn = document.getElementById('create-room-btn');
+            if (!firebaseReady || !db) {
+                document.getElementById('online-setup-warning').classList.remove('hidden');
+                alert('Firebase did not start. Open this page over http/https (not a blocked file) and check the browser console.');
+                return;
+            }
+            if (btn) {
+                btn.disabled = true;
+                btn.innerText = 'Creating…';
+            }
+            showOnlineStatusView('Creating room on Firebase…', '…..');
+            roomCode = generateRoomCode();
+            onlineMode = true;
+            isHost = true;
+            myPlayerNo = 1;
+            guestBoardBuilt = false;
+            guestEndShown = false;
+            roomDocRef = db.collection('cursedCardRooms').doc(roomCode);
+            withTimeout(roomDocRef.set({ started: false, hostConnected: true, createdAt: Date.now() }), 12000, 'Create room')
+                .then(() => {
+                    try { listenForGuestActions(); } catch (listenErr) { console.error(listenErr); }
+                    showOnlineStatusView('Room created! Set up your party & mode below, then embark. Share this code with friends:', roomCode);
+                    try { SFX.purchase(); } catch (sfxErr) {}
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = 'Create Room';
+                    }
+                })
+                .catch(err => {
+                    console.error(err);
+                    onlineMode = false;
+                    isHost = false;
+                    roomDocRef = null;
+                    document.getElementById('online-status-view').classList.add('hidden');
+                    document.getElementById('online-idle-view').classList.remove('hidden');
+                    if (btn) {
+                        btn.disabled = false;
+                        btn.innerText = 'Create Room';
+                    }
+                    showOnlineError('Could not create room.\n\n' + firestoreErrorHint(err));
+                });
+        }
+
+        function joinOnlineGame() {
+            if (!firebaseReady) {
+                document.getElementById('online-setup-warning').classList.remove('hidden');
+                return;
+            }
+            const code = (document.getElementById('join-room-code').value || '').trim().toUpperCase();
+            const seat = Number(document.getElementById('join-player-seat').value);
+            if (!code) {
+                SFX.error();
+                return;
+            }
+            roomCode = code;
+            onlineMode = true;
+            isHost = false;
+            myPlayerNo = seat;
+            guestBoardBuilt = false;
+            guestEndShown = false;
+            roomDocRef = db.collection('cursedCardRooms').doc(roomCode);
+            withTimeout(roomDocRef.get(), 12000, 'Join room').then(doc => {
+                if (!doc.exists) {
+                    alert('Room not found. Double check the code with your host.');
+                    onlineMode = false;
+                    return;
+                }
+                attachGuestListener();
+                showOnlineStatusView(`Connected as Explorer ${seat}. Waiting for the host to embark...`, roomCode);
+                SFX.purchase();
+            }).catch(err => {
+                console.error(err);
+                alert('Could not reach that room: ' + (err && err.message ? err.message : err) + '\n\nIf this mentions permissions or "database does not exist", create Firestore in Firebase Console and allow read/write on cursedCardRooms.');
+                onlineMode = false;
+            });
+        }
+
+        function leaveOnlineSession() {
+            backToMenu();
+        }
+
+        function sendOnlineAction(action) {
+            if (!roomDocRef) return;
+            roomDocRef.collection('actions').add({ ...action, playerNo: myPlayerNo, ts: Date.now() })
+                .catch(err => {
+                    console.error(err);
+                    statusBar.innerText = 'Connection hiccup — could not send your action.';
+                });
+        }
+
+        function listenForGuestActions() {
+            if (actionsUnsub) actionsUnsub();
+            actionsUnsub = roomDocRef.collection('actions').orderBy('ts').onSnapshot(snap => {
+                snap.docChanges().forEach(change => {
+                    if (change.type !== 'added') return;
+                    const data = change.doc.data();
+                    processGuestAction(data);
+                    change.doc.ref.delete().catch(() => {});
+                });
+            }, err => console.error('Action listener error:', err));
+        }
+
+        function processGuestAction(data) {
+            if (!gameActive || data.playerNo !== currentPlayer) return;
+            if (data.type === 'flip') handleFlip(data.index);
+            else if (data.type === 'shoot') fireShotgun(data.playerNo);
+            else if (data.type === 'buy') purchaseShopItem(data.itemId);
+        }
+
+        function attachGuestListener() {
+            if (roomUnsub) roomUnsub();
+            roomUnsub = roomDocRef.onSnapshot(snap => {
+                if (!snap.exists) return;
+                applyRemoteState(snap.data());
+            }, err => console.error('Room listener error:', err));
+        }
+
+        function broadcastState(extra = {}) {
+            if (!roomDocRef || !isHost) return;
+            const boardCards = Array.from(document.querySelectorAll('#grid .card-inner')).map(el => ({
+                type: el.getAttribute('data-type'),
+                flipped: el.classList.contains('flipped'),
+                voided: el.classList.contains('opacity-35')
+            }));
+            const timerHidden = document.getElementById('turn-timer-display').classList.contains('hidden');
+            const payload = {
+                started: true,
+                mode: currentMode,
+                modeLabel: document.getElementById('game-mode-label').innerText,
+                numPlayers,
+                personalShops,
+                activePlayers,
+                currentPlayer,
+                gameActive,
+                extraTurnActive,
+                frozenPlayers: Array.from(frozenPlayers),
+                players: state,
+                boardCards,
+                timed: !timerHidden,
+                statusText: statusBar.innerText,
+                statusClass: statusBar.className,
+                log: Array.from(gameLog.children).slice(0, 40).map(el => el.innerHTML),
+                updatedAt: Date.now(),
+                ...extra
+            };
+            roomDocRef.set(payload, { merge: true }).catch(err => console.error('Broadcast failed:', err));
+        }
+
+        function applyRemoteState(data) {
+            if (!data || !data.started) return;
+
+            numPlayers = data.numPlayers;
+            currentMode = data.mode;
+            personalShops = data.personalShops || {};
+            activePlayers = data.activePlayers || [];
+            currentPlayer = data.currentPlayer;
+            gameActive = data.gameActive;
+            extraTurnActive = !!data.extraTurnActive;
+            frozenPlayers = new Set(data.frozenPlayers || []);
+
+            Object.keys(state).forEach(k => delete state[k]);
+            Object.entries(data.players || {}).forEach(([k, v]) => {
+                state[Number(k)] = { ...v, items: v.items || [] };
+            });
+
+            if (!guestBoardBuilt) {
+                menuScreen.classList.add('hidden');
+                menuScreen.style.opacity = '0';
+                gameScreen.classList.remove('hidden');
+                gameScreen.style.opacity = '1';
+                gameScreen.style.transform = 'translateY(0)';
+                syncBoardDOM(data.boardCards || [], true);
+                renderPlayers();
+                guestBoardBuilt = true;
+            } else {
+                syncBoardDOM(data.boardCards || [], false);
+                renderPlayers();
+            }
+
+            const modeLabelEl = document.getElementById('game-mode-label');
+            if (modeLabelEl) modeLabelEl.innerText = (data.modeLabel || currentMode).toUpperCase();
+            const counterEl = document.getElementById('deck-counter');
+            if (counterEl && data.boardCards) counterEl.innerText = data.boardCards.filter(c => !c.flipped).length;
+            const timerDisplay = document.getElementById('turn-timer-display');
+            if (timerDisplay) timerDisplay.classList.toggle('hidden', !data.timed);
+
+            if (data.statusText) {
+                statusBar.innerText = data.statusText;
+                if (data.statusClass) statusBar.className = data.statusClass;
+            }
+            if (Array.isArray(data.log)) {
+                gameLog.innerHTML = data.log.map(line => `<div class="border-l-2 border-slate-800 pl-2 py-0.5">${line}</div>`).join('');
+            }
+
+            updateUI();
+
+            if (!data.gameActive && data.winnerNo !== undefined && !guestEndShown) {
+                guestEndShown = true;
+                endGame(data.winnerNo === 'NONE' ? null : data.winnerNo);
+            }
+        }
+
+        function syncBoardDOM(boardCards, fullBuild) {
+            if (fullBuild) {
+                grid.innerHTML = '';
+                boardCards.forEach((c, index) => {
+                    const card = document.createElement('div');
+                    card.className = 'card-container aspect-square w-full';
+                    card.innerHTML = `
+                        <div class="card-inner w-full h-full${c.flipped ? ' flipped' : ''}${c.voided ? ' opacity-35' : ''}" data-type="${c.type}" id="card-${index}">
+                            <div class="card-front text-sm font-black border-2">${index + 1}</div>
+                            <div class="card-back border-2 ${CARD_TYPES[c.type].class}">
+                                <i class="fas ${CARD_TYPES[c.type].icon} text-lg mb-1"></i>
+                                <span class="text-[8px] font-bold uppercase tracking-wider">${c.type}</span>
+                            </div>
+                        </div>
+                    `;
+                    card.addEventListener('click', () => handleFlip(index));
+                    grid.appendChild(card);
+                });
+            } else {
+                boardCards.forEach((c, index) => {
+                    const el = document.getElementById(`card-${index}`);
+                    if (!el) return;
+                    if (el.getAttribute('data-type') !== c.type) {
+                        el.setAttribute('data-type', c.type);
+                        const back = el.querySelector('.card-back');
+                        back.className = `card-back border-2 ${CARD_TYPES[c.type].class}`;
+                        back.querySelector('i').className = `fas ${CARD_TYPES[c.type].icon} text-lg mb-1`;
+                        back.querySelector('span').innerText = c.type;
+                    }
+                    if (c.flipped) el.classList.add('flipped');
+                    if (c.voided) el.classList.add('opacity-35');
+                });
+            }
+        }
+        // ============ END ONLINE MODE ============
+
+        let audioCtx = null;
+
+        function getAudioContext() {
+            if (audioCtx) return audioCtx;
+            const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+            if (!AudioContextClass) return null;
+            try {
+                audioCtx = new AudioContextClass();
+                return audioCtx;
+            } catch (e) {
+                return null;
+            }
+        }
+
+        // 8-bit style chiptune note player: discrete square-wave "blips" with a hard
+        // stepped decay and a gentle lowpass to tame square-wave harshness, mimicking
+        // an old console's pulse channel instead of a smooth synth pad.
+        function playSynth(freqs, duration = 0.15, type = 'square', gainStart = 0.1) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                if (ctx.state === 'suspended') ctx.resume();
+                const notes = typeof freqs === 'number' ? [freqs] : freqs;
+                const noteTime = duration / notes.length;
+
+                notes.forEach((f, idx) => {
+                    const startAt = ctx.currentTime + idx * noteTime;
+                    const osc = ctx.createOscillator();
+                    const gain = ctx.createGain();
+                    const filter = ctx.createBiquadFilter();
+
+                    osc.type = type;
+                    // quantize to whole-number Hz steps, no glide between notes = blocky chip feel
+                    osc.frequency.setValueAtTime(Math.round(f), startAt);
+
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(5200, startAt);
+                    filter.Q.setValueAtTime(0.7, startAt);
+
+                    gain.gain.setValueAtTime(gainStart, startAt);
+                    gain.gain.setValueAtTime(gainStart, startAt + noteTime * 0.55);
+                    gain.gain.linearRampToValueAtTime(0.0001, startAt + noteTime * 0.92);
+
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(startAt);
+                    osc.stop(startAt + noteTime);
+                });
+            } catch (err) {}
+        }
+
+        // 8-bit noise-channel style burst (like the NES's noise channel), used for
+        // percussive/impact effects rather than tonal ones.
+        function playNoiseBurst(duration = 0.3, gainStart = 0.2, startFreq = 1800, endFreq = 150) {
+            try {
+                const ctx = getAudioContext();
+                if (!ctx) return;
+                if (ctx.state === 'suspended') ctx.resume();
+                const bufferSize = Math.max(1, Math.floor(ctx.sampleRate * duration));
+                const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+
+                const noise = ctx.createBufferSource();
+                noise.buffer = buffer;
+
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(startFreq, ctx.currentTime);
+                filter.frequency.exponentialRampToValueAtTime(endFreq, ctx.currentTime + duration);
+
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(gainStart, ctx.currentTime);
+                gain.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + duration);
+
+                noise.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noise.start();
+                noise.stop(ctx.currentTime + duration);
+            } catch (err) {}
+        }
+
+        const SFX = {
+            flip:     () => playSynth([523, 784], 0.08, 'square', 0.11),
+            purchase: () => playSynth([392, 523, 659], 0.18, 'square', 0.09),
+            error:    () => playSynth([196, 147], 0.16, 'square', 0.13),
+            unlock:   () => playSynth([392, 523, 659, 1046], 0.28, 'square', 0.08),
+            heal:     () => playSynth([659, 784, 988, 1318], 0.26, 'square', 0.07),
+            damage:   () => playSynth([220, 110], 0.2, 'square', 0.16),
+            victory:  () => playSynth([523, 659, 784, 1046, 1318], 0.45, 'square', 0.1),
+            shotgun:  () => playNoiseBurst(0.32, 0.24, 2200, 120)
+        };
+
+        const CARD_TYPES = {
+            SAFE:     { icon: 'fa-check', class: 'type-safe', desc: 'Safe Area: +1 Gold', gold: 1 },
+            GOLD:     { icon: 'fa-coins', class: 'type-gold', desc: 'Treasure Pile: +5 Gold', gold: 5 },
+            SKULL:    { icon: 'fa-skull', class: 'type-skull', desc: 'Cursed Trap: -1 Heart' },
+            HEAL:     { icon: 'fa-heart', class: 'type-heal', desc: 'Life Blessing: +1 Heart', heal: 1 },
+            VOID:     { icon: 'fa-ghost', class: 'type-void', desc: 'Void Collapse: 2 safe/treasure cards lost' },
+            CHAOS:    { icon: 'fa-wind', class: 'type-chaos', desc: 'Chaos Warp: Board Shuffled' },
+            THIEF:    { icon: 'fa-user-ninja', class: 'type-thief', desc: "Thief's Mark: Lost 12% gold" },
+            CRYSTAL:  { icon: 'fa-gem', class: 'type-crystal', desc: 'Crystal Cache: +7 Gold', gold: 7 },
+            VENOM:    { icon: 'fa-bug', class: 'type-venom', desc: 'Venom Spike: -1 Heart and frozen' },
+            RIFT:     { icon: 'fa-infinity', class: 'type-rift', desc: 'Rift: Random board shift' },
+            MEND:     { icon: 'fa-plus-circle', class: 'type-mend', desc: 'Mend: +2 Hearts' },
+            WIND:     { icon: 'fa-wind', class: 'type-wind', desc: 'Wind Gust: Extra turn!' },
+            BARRIER:  { icon: 'fa-shield', class: 'type-barrier', desc: 'Barrier: Shield next negative effect' },
+            FORTUNE:  { icon: 'fa-hand-holding-dollar', class: 'type-fortune', desc: 'Fortune: +8 Gold', gold: 8 },
+            PHANTOM:  { icon: 'fa-mask', class: 'type-phantom', desc: 'Phantom: reveals 1 hidden card' },
+            ORACLE:   { icon: 'fa-eye', class: 'type-oracle', desc: 'Oracle: reveal 6 nearby cards' },
+            BULLET:   { icon: 'fa-crosshairs', class: 'type-bulletdrop', desc: 'Shotgun Cache: +1 Bullet', bullets: 1 },
+            SWAP:     { icon: 'fa-shuffle', class: 'type-swap', desc: 'Position Swap: Trade places', treasureOnly: true },
+            COINBOOST:{ icon: 'fa-arrow-trend-up', class: 'type-coinboost', desc: 'Ancient Relic: +0.20 Coin Multiplier', multAdd: 0.20 },
+            INFERNO:  { icon: 'fa-fire', class: 'type-inferno', desc: 'Inferno: -1 Heart & lose 10 Gold', harm: true },
+            BLESSING: { icon: 'fa-seedling', class: 'type-blessing', desc: 'Blessing of Flora: +2 Hearts', heal: 2 },
+            PLUNDER:  { icon: 'fa-sack-dollar', class: 'type-plunder', desc: 'Plunder: +12 Gold', gold: 12 },
+            DOOM:     { icon: 'fa-skull-crossbones', class: 'type-doom', desc: 'Doom Shroud: -2 Hearts', harm: true }
+        };
+
+        const MODE_CONFIGS = {
+            classic: {
+                label: 'Classic Run',
+                cards: 100,
+                hp: 3,
+                weights: { SAFE: 43, GOLD: 10, SKULL: 12, HEAL: 5, VOID: 4, CHAOS: 4, THIEF: 4, CRYSTAL: 3, FORTUNE: 2, MEND: 2, WIND: 2, BARRIER: 2, BULLET: 5, PHANTOM: 1, ORACLE: 1 }
+            },
+            blitz: {
+                label: 'Blitz Duel (Timed 30s)',
+                cards: 50,
+                hp: 3,
+                timed: true,
+                turnTime: 30,
+                weights: { SAFE: 38, GOLD: 14, SKULL: 10, HEAL: 5, VOID: 3, CHAOS: 5, THIEF: 4, CRYSTAL: 5, FORTUNE: 3, WIND: 3, BULLET: 5, PLUNDER: 5 }
+            },
+            hardcore: {
+                label: 'Hardcore',
+                cards: 100,
+                hp: 1,
+                weights: { SAFE: 44, GOLD: 9, SKULL: 14, HEAL: 3, VOID: 5, CHAOS: 5, THIEF: 4, CRYSTAL: 3, FORTUNE: 2, BARRIER: 3, BULLET: 4, DOOM: 2, PHANTOM: 1 }
+            },
+            chaos: {
+                label: 'Chaos Mode',
+                cards: 100,
+                hp: 3
+            },
+            treasure: {
+                label: 'Treasure Hunt',
+                cards: 80,
+                hp: 3,
+                weights: { SAFE: 32, GOLD: 18, SKULL: 8, HEAL: 5, VOID: 3, CHAOS: 4, THIEF: 3, CRYSTAL: 6, FORTUNE: 5, WIND: 3, SWAP: 3, BULLET: 5, BLESSING: 2, PLUNDER: 6 }
+            },
+            nightmare: {
+                label: 'Nightmare Rush',
+                cards: 100,
+                hp: 2,
+                weights: { SAFE: 33, GOLD: 7, SKULL: 18, HEAL: 3, VOID: 7, CHAOS: 5, THIEF: 4, VENOM: 5, RIFT: 4, INFERNO: 4, DOOM: 2, BULLET: 5, MEND: 1, BARRIER: 2 }
+            },
+            bloodmoon: {
+                label: 'Bloodmoon Siege',
+                cards: 70,
+                hp: 3,
+                startGold: 15,
+                bullets: 2,
+                weights: { SAFE: 24, GOLD: 8, SKULL: 10, HEAL: 4, VOID: 3, CHAOS: 3, THIEF: 3, CRYSTAL: 4, FORTUNE: 3, BULLET: 16, VENOM: 4, INFERNO: 4, WIND: 3, BARRIER: 4, DOOM: 2, PLUNDER: 5 }
+            }
+        };
+
+        const SHOP_ITEMS_MASTER = [
+            { id: 'bulletpack', name: 'Shotgun Ammo (2x)', cost: 20, icon: 'fa-crosshairs', desc: 'Grants +2 shotgun bullets', color: 'text-orange-400' },
+            { id: 'coinmult', name: 'Coin Stack (+0.15)', cost: 35, icon: 'fa-coins', desc: 'Permanently stack +0.15 coin earnings', color: 'text-amber-400', stackable: true },
+            { id: 'shield', name: 'Holy Shield', cost: 20, icon: 'fa-shield-halved', desc: 'Blocks the next harmful card effect', color: 'text-sky-400', uses: 1 },
+            { id: 'scanner', name: 'Mind Map', cost: 18, icon: 'fa-eye', desc: 'Instantly clears 4 safe/gold areas', color: 'text-emerald-400' },
+            { id: 'elixir', name: 'Life Elixir', cost: 22, icon: 'fa-heart-pulse', desc: 'Restore 1 lost Life Heart', color: 'text-red-500' },
+            { id: 'glove', name: 'Targeted Thief Glove', cost: 28, icon: 'fa-hand-sparkles', desc: 'Steal 15% gold from any chosen rival', color: 'text-purple-400' },
+            { id: 'peek', name: 'Seekers Peek', cost: 10, icon: 'fa-wand-magic-sparkles', desc: 'Briefly scans 5 random hidden tiles', color: 'text-amber-400' },
+            { id: 'dice', name: 'Chaos Dice', cost: 8, icon: 'fa-dice-d20', desc: 'Gamble: 50% +1 Heart or -1 Heart', color: 'text-yellow-400' },
+            { id: 'adrenaline', name: 'Adrenaline Shot', cost: 25, icon: 'fa-bolt', desc: 'Grants an immediate extra turn', color: 'text-teal-400' },
+            { id: 'armor', name: 'Steel Plating', cost: 28, icon: 'fa-shield', desc: 'Increases max heart capacity by +1', color: 'text-indigo-400' },
+            { id: 'wardward', name: 'Death Ward', cost: 40, icon: 'fa-cross', desc: 'Prevents a fatal blow, leaves you at 1 Heart', color: 'text-yellow-300', uses: 1 },
+            { id: 'freeze', name: 'Frost Trap', cost: 25, icon: 'fa-snowflake', desc: 'Freeze a chosen rival for their next turn', color: 'text-sky-300' },
+            { id: 'luckycoin', name: 'Lucky Coin', cost: 20, icon: 'fa-star', desc: 'Doubles the gold from your next reward tile', color: 'text-amber-300', uses: 1 },
+            { id: 'radar', name: 'Danger Radar', cost: 22, icon: 'fa-satellite-dish', desc: 'Reveals location of 3 hidden danger tiles', color: 'text-rose-300' },
+            { id: 'heist', name: 'Black Market Heist', cost: 28, icon: 'fa-mask', desc: 'Swap your gold with a random rival', color: 'text-purple-300' },
+            { id: 'overclock', name: 'Overclock Core', cost: 35, icon: 'fa-gauge-high', desc: 'Next shotgun shot costs 1 bullet and ignores cooldown', color: 'text-orange-300', uses: 1 }
+        ];
+
+        let customModeConfig = {};
+
+        // ---- Custom Mode+ : Card Index & Blueprint system ----
+        const DEFAULT_CARD_WEIGHTS = {
+            SAFE: 43, GOLD: 10, SKULL: 12, HEAL: 5, VOID: 4, CHAOS: 4,
+            THIEF: 4, CRYSTAL: 3, FORTUNE: 2, MEND: 2, WIND: 2, BARRIER: 2,
+            BULLET: 5, PHANTOM: 1, ORACLE: 1, RIFT: 0, SWAP: 0, COINBOOST: 0,
+            INFERNO: 0, BLESSING: 0, PLUNDER: 0, DOOM: 0, VENOM: 0
+        };
+        const CARD_INDEX_PRESETS = {
+            classic: { ...DEFAULT_CARD_WEIGHTS },
+            danger: {
+                SAFE: 18, GOLD: 5, SKULL: 20, HEAL: 2, VOID: 8, CHAOS: 6,
+                THIEF: 6, CRYSTAL: 1, FORTUNE: 1, MEND: 1, WIND: 1, BARRIER: 2,
+                BULLET: 4, PHANTOM: 1, ORACLE: 1, RIFT: 6, SWAP: 0, COINBOOST: 0,
+                INFERNO: 8, BLESSING: 0, PLUNDER: 0, DOOM: 5, VENOM: 8
+            },
+            treasure: {
+                SAFE: 20, GOLD: 20, SKULL: 4, HEAL: 4, VOID: 1, CHAOS: 2,
+                THIEF: 2, CRYSTAL: 12, FORTUNE: 10, MEND: 2, WIND: 2, BARRIER: 1,
+                BULLET: 3, PHANTOM: 1, ORACLE: 2, RIFT: 0, SWAP: 4, COINBOOST: 8,
+                INFERNO: 0, BLESSING: 4, PLUNDER: 10, DOOM: 0, VENOM: 0
+            },
+            chaos: Object.fromEntries(Object.keys(DEFAULT_CARD_WEIGHTS).map(k => [k, 4])),
+            clear: Object.fromEntries(Object.keys(DEFAULT_CARD_WEIGHTS).map(k => [k, 0]))
+        };
+        let customCardWeights = { ...DEFAULT_CARD_WEIGHTS };
+        let savedBlueprints = [];
+        const BLUEPRINT_STORAGE_KEY = 'cursedCard_customBlueprints';
+
+        function loadBlueprintsFromStorage() {
+            try {
+                const raw = localStorage.getItem(BLUEPRINT_STORAGE_KEY);
+                savedBlueprints = raw ? JSON.parse(raw) : [];
+                if (!Array.isArray(savedBlueprints)) savedBlueprints = [];
+            } catch (e) {
+                savedBlueprints = [];
+            }
+        }
+
+        function persistBlueprints() {
+            try {
+                localStorage.setItem(BLUEPRINT_STORAGE_KEY, JSON.stringify(savedBlueprints));
+            } catch (e) {
+                console.warn('Could not save blueprints:', e);
+            }
+        }
+
+        function buildCardIndexEditor() {
+            const grid = document.getElementById('card-index-grid');
+            if (!grid) return;
+            grid.innerHTML = '';
+            Object.keys(CARD_TYPES).forEach(type => {
+                if (customCardWeights[type] === undefined) customCardWeights[type] = 0;
+                const data = CARD_TYPES[type];
+                const cell = document.createElement('div');
+                cell.className = `p-2.5 rounded-xl border ${data.class} bg-opacity-10 flex flex-col gap-1.5`;
+                cell.style.background = 'rgba(15, 23, 42, 0.6)';
+                cell.innerHTML = `
+                    <div class="flex items-center justify-between gap-1">
+                        <span class="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-wide truncate">
+                            <i class="fas ${data.icon} text-xs"></i> ${type}
+                        </span>
+                        <span id="card-index-pct-${type}" class="text-[9px] font-mono text-slate-500">0%</span>
+                    </div>
+                    <input type="number" min="0" max="50" value="${customCardWeights[type]}" 
+                           id="card-index-input-${type}"
+                           oninput="updateCardWeight('${type}', this.value)"
+                           class="bg-slate-950 border border-slate-800 rounded-lg p-1.5 text-xs text-white focus:outline-none focus:border-fuchsia-500 w-full" />
+                `;
+                grid.appendChild(cell);
+            });
+            refreshCardIndexPercentages();
+        }
+
+        function updateCardWeight(type, value) {
+            const num = Math.max(0, Math.min(50, Number(value) || 0));
+            customCardWeights[type] = num;
+            refreshCardIndexPercentages();
+        }
+
+        function refreshCardIndexPercentages() {
+            const total = Object.values(customCardWeights).reduce((sum, v) => sum + Math.max(0, Number(v) || 0), 0);
+            Object.keys(CARD_TYPES).forEach(type => {
+                const pctEl = document.getElementById(`card-index-pct-${type}`);
+                if (!pctEl) return;
+                const w = Math.max(0, Number(customCardWeights[type]) || 0);
+                pctEl.innerText = total > 0 ? `${((w / total) * 100).toFixed(1)}%` : '—';
+            });
+            const totalEl = document.getElementById('card-index-total');
+            if (totalEl) totalEl.innerText = `Total Weight: ${total}`;
+        }
+
+        function applyCardIndexPreset(name) {
+            if (name === 'randomize') {
+                Object.keys(customCardWeights).forEach(type => {
+                    customCardWeights[type] = Math.floor(Math.random() * 16);
+                });
+            } else if (CARD_INDEX_PRESETS[name]) {
+                customCardWeights = { ...CARD_INDEX_PRESETS[name] };
+            }
+            Object.keys(CARD_TYPES).forEach(type => {
+                if (customCardWeights[type] === undefined) customCardWeights[type] = 0;
+                const input = document.getElementById(`card-index-input-${type}`);
+                if (input) input.value = customCardWeights[type];
+            });
+            refreshCardIndexPercentages();
+            SFX.flip();
+        }
+
+        function gatherCustomSettings() {
+            return {
+                hearts: Math.max(1, Number(document.getElementById('custom-starter-hearts').value || 4)),
+                deckSize: Math.max(10, Number(document.getElementById('custom-deck-size').value || 60)),
+                startGold: Math.max(0, Number(document.getElementById('custom-start-gold').value || 20)),
+                bullets: Math.max(0, Number(document.getElementById('custom-start-bullets').value || 0)),
+                mult: Math.max(0.5, Number(document.getElementById('custom-start-mult').value || 1.0)),
+                turnTime: Math.max(0, Number(document.getElementById('custom-turn-time').value || 0)),
+                shotgunCost: Math.max(1, Number(document.getElementById('custom-shotgun-cost').value || 2)),
+                shotgunCooldown: Math.max(0, Number(document.getElementById('custom-shotgun-cooldown').value || 2))
+            };
+        }
+
+        function applyCustomSettings(settings) {
+            if (!settings) return;
+            const map = {
+                hearts: 'custom-starter-hearts', deckSize: 'custom-deck-size', startGold: 'custom-start-gold',
+                bullets: 'custom-start-bullets', mult: 'custom-start-mult', turnTime: 'custom-turn-time',
+                shotgunCost: 'custom-shotgun-cost', shotgunCooldown: 'custom-shotgun-cooldown'
+            };
+            Object.entries(map).forEach(([key, id]) => {
+                const el = document.getElementById(id);
+                if (el && settings[key] !== undefined) el.value = settings[key];
+            });
+        }
+
+        function saveCustomBlueprint() {
+            const nameInput = document.getElementById('blueprint-name-input');
+            const name = (nameInput.value || '').trim();
+            if (!name) {
+                SFX.error();
+                statusBar.innerText = 'Give your blueprint a name before saving.';
+                return;
+            }
+            const blueprint = {
+                id: Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+                name,
+                savedAt: new Date().toISOString(),
+                settings: gatherCustomSettings(),
+                weights: { ...customCardWeights }
+            };
+            savedBlueprints = savedBlueprints.filter(b => b.name !== name);
+            savedBlueprints.push(blueprint);
+            persistBlueprints();
+            refreshBlueprintList();
+            nameInput.value = '';
+            SFX.purchase();
+            statusBar.innerText = `Blueprint "${name}" saved!`;
+        }
+
+        function refreshBlueprintList() {
+            const list = document.getElementById('blueprint-list');
+            if (!list) return;
+            list.innerHTML = '';
+            if (savedBlueprints.length === 0) {
+                list.innerHTML = `<div class="text-slate-600 italic text-xs text-center py-2">No saved blueprints yet.</div>`;
+                return;
+            }
+            [...savedBlueprints].reverse().forEach(bp => {
+                const row = document.createElement('div');
+                row.className = 'flex items-center justify-between gap-2 bg-slate-900/70 border border-slate-800/70 rounded-xl px-3 py-2';
+                row.innerHTML = `
+                    <div class="min-w-0">
+                        <div class="text-xs font-bold text-slate-200 truncate">${bp.name}</div>
+                        <div class="text-[9px] text-slate-500 font-mono">${new Date(bp.savedAt).toLocaleDateString()} · ${bp.settings.deckSize} cards · ${bp.settings.hearts}♥</div>
+                    </div>
+                    <div class="flex items-center gap-1.5 shrink-0">
+                        <button onclick="loadCustomBlueprint('${bp.id}')" class="text-[10px] font-bold bg-fuchsia-600/70 hover:bg-fuchsia-500 text-white px-2.5 py-1.5 rounded-lg transition-all"><i class="fas fa-upload"></i> Load</button>
+                        <button onclick="exportBlueprint('${bp.id}')" class="text-[10px] font-bold bg-slate-800 hover:bg-slate-700 text-slate-300 px-2.5 py-1.5 rounded-lg transition-all"><i class="fas fa-copy"></i></button>
+                        <button onclick="deleteCustomBlueprint('${bp.id}')" class="text-[10px] font-bold bg-rose-950/60 hover:bg-rose-900 text-rose-400 px-2.5 py-1.5 rounded-lg transition-all"><i class="fas fa-trash"></i></button>
+                    </div>
+                `;
+                list.appendChild(row);
+            });
+        }
+
+        function loadCustomBlueprint(id) {
+            const bp = savedBlueprints.find(b => b.id === id);
+            if (!bp) return;
+            applyCustomSettings(bp.settings);
+            customCardWeights = { ...DEFAULT_CARD_WEIGHTS, ...bp.weights };
+            buildCardIndexEditor();
+            document.getElementById('custom-options').classList.remove('hidden');
+            SFX.flip();
+            statusBar.innerText = `Loaded blueprint "${bp.name}".`;
+        }
+
+        function deleteCustomBlueprint(id) {
+            const bp = savedBlueprints.find(b => b.id === id);
+            if (!bp) return;
+            if (!confirm(`Delete blueprint "${bp.name}"? This cannot be undone.`)) return;
+            savedBlueprints = savedBlueprints.filter(b => b.id !== id);
+            persistBlueprints();
+            refreshBlueprintList();
+            SFX.error();
+        }
+
+        function exportBlueprint(id) {
+            const bp = savedBlueprints.find(b => b.id === id);
+            if (!bp) return;
+            const json = JSON.stringify(bp, null, 2);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(json).then(() => {
+                    statusBar.innerText = `Blueprint "${bp.name}" copied to clipboard as JSON.`;
+                }).catch(() => {
+                    prompt('Copy this blueprint JSON:', json);
+                });
+            } else {
+                prompt('Copy this blueprint JSON:', json);
+            }
+        }
+
+        function importBlueprintPrompt() {
+            const raw = prompt('Paste a blueprint JSON to import:');
+            if (!raw) return;
+            try {
+                const parsed = JSON.parse(raw);
+                if (!parsed || !parsed.settings || !parsed.weights) throw new Error('Invalid blueprint shape');
+                parsed.id = Date.now().toString(36) + Math.random().toString(36).slice(2, 6);
+                parsed.name = parsed.name || 'Imported Blueprint';
+                parsed.savedAt = new Date().toISOString();
+                savedBlueprints = savedBlueprints.filter(b => b.name !== parsed.name);
+                savedBlueprints.push(parsed);
+                persistBlueprints();
+                refreshBlueprintList();
+                SFX.purchase();
+                statusBar.innerText = `Imported blueprint "${parsed.name}".`;
+            } catch (e) {
+                SFX.error();
+                alert('That doesn\'t look like a valid blueprint JSON.');
+            }
+        }
+
+        let flipCount = 0;
+        let lastCardEffect = null;
+        let frozenPlayers = new Set();
+        let personalShops = {}; // maps playerNo -> array of 5 selected item IDs
+        let currentShopConfigPlayer = 1;
+
+        function selectPlayers(count) {
+            numPlayers = count;
+            const buttons = document.querySelectorAll('.player-count-btn');
+            buttons.forEach((btn, idx) => {
+                if (idx + 1 === count) {
+                    btn.className = "player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-indigo-600/30 border-indigo-500 text-indigo-300 shadow-[0_0_15px_rgba(99,102,241,0.2)]";
+                } else {
+                    btn.className = "player-count-btn px-5 py-3 rounded-xl font-bold border transition-all duration-200 bg-slate-850 hover:bg-slate-800 border-slate-700 text-slate-300";
+                }
+            });
+            buildCharacterSelectionArea();
+            buildShopPickerUI();
+            SFX.unlock();
+        }
+
+        function buildCharacterSelectionArea() {
+            const area = document.getElementById('character-selection-area');
+            area.innerHTML = '';
+            playerSetups = [];
+
+            for (let i = 1; i <= numPlayers; i++) {
+                const classDefault = HERO_CLASSES[(i - 1) % HERO_CLASSES.length];
+                playerSetups.push({
+                    playerNo: i,
+                    name: `Explorer ${i}`,
+                    classId: classDefault.id,
+                    color: classDefault.color
+                });
+
+                const container = document.createElement('div');
+                container.className = "bg-slate-950/70 p-4 rounded-2xl border border-slate-800/80 flex flex-col gap-3";
+                container.innerHTML = `
+                    <div class="flex items-center justify-between">
+                        <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Explorer P${i}</span>
+                        <input id="char-name-input-${i}" type="text" value="${playerSetups[i-1].name}" 
+                               oninput="updatePlayerName(${i}, this.value)" 
+                               class="bg-slate-900 border border-slate-800 text-slate-200 text-xs py-1 px-2.5 rounded-lg w-32 focus:outline-none focus:border-indigo-500 font-bold" />
+                    </div>
+                    
+                    <div class="grid grid-cols-4 gap-1.5 mt-1">
+                        ${HERO_CLASSES.map(cls => `
+                            <button id="class-btn-${i}-${cls.id}" 
+                                    onclick="selectCharacterClass(${i}, '${cls.id}')" 
+                                    class="p-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all group ${cls.id === classDefault.id ? 'bg-indigo-950/30 border-indigo-500 text-indigo-300' : 'bg-slate-900 border-slate-850 hover:border-slate-700 text-slate-400'}"
+                                    title="${cls.desc}">
+                                <i class="fas ${cls.icon} text-sm"></i>
+                                <span class="text-[9px] font-bold uppercase tracking-wider">${cls.name}</span>
+                            </button>
+                        `).join('')}
+                    </div>
+
+                    <div id="class-perk-desc-${i}" class="text-[10px] text-slate-500 italic mt-1 text-center">
+                        Ability: ${classDefault.desc}
+                    </div>
+                `;
+                area.appendChild(container);
+            }
+        }
+
+        function buildShopPickerUI() {
+            const tabsContainer = document.getElementById('shop-picker-tabs');
+            tabsContainer.innerHTML = '';
+
+            for (let i = 1; i <= numPlayers; i++) {
+                if (!personalShops[i]) {
+                    // Default pick first 5 items
+                    personalShops[i] = SHOP_ITEMS_MASTER.slice(0, 5).map(it => it.id);
+                }
+                const btn = document.createElement('button');
+                btn.id = `shop-tab-p${i}`;
+                btn.className = `px-4 py-2 rounded-xl text-xs font-bold border transition-all ${i === currentShopConfigPlayer ? 'bg-indigo-600/30 border-indigo-500 text-indigo-300' : 'bg-slate-950 border-slate-800 text-slate-400 hover:text-slate-200'}`;
+                btn.innerText = `Explorer P${i} Shop (${personalShops[i].length}/5)`;
+                btn.onclick = () => {
+                    currentShopConfigPlayer = i;
+                    buildShopPickerUI();
+                };
+                tabsContainer.appendChild(btn);
+            }
+
+            document.getElementById('shop-picker-status').innerText = `Configuring P${currentShopConfigPlayer} Shop (Select 5)`;
+
+            const gridContainer = document.getElementById('shop-picker-grid');
+            gridContainer.innerHTML = '';
+
+            const currentPicked = personalShops[currentShopConfigPlayer] || [];
+
+            SHOP_ITEMS_MASTER.forEach(item => {
+                const isSelected = currentPicked.includes(item.id);
+                const card = document.createElement('button');
+                card.onclick = () => toggleShopItemSelection(currentShopConfigPlayer, item.id);
+                card.className = `p-3 rounded-2xl border text-left flex flex-col justify-between transition-all ${isSelected ? 'bg-indigo-950/50 border-indigo-500 text-indigo-200 shadow-lg' : 'bg-slate-950/40 border-slate-800/80 text-slate-400 hover:border-slate-700'}`;
+                card.innerHTML = `
+                    <div class="flex items-center justify-between mb-2">
+                        <span class="p-2 bg-slate-900 rounded-xl ${item.color}"><i class="fas ${item.icon}"></i></span>
+                        <span class="text-[10px] font-mono font-bold ${isSelected ? 'text-indigo-400' : 'text-slate-500'}">${isSelected ? 'SELECTED' : '+ Add'}</span>
+                    </div>
+                    <div>
+                        <strong class="text-xs block text-slate-100 mb-0.5">${item.name}</strong>
+                        <span class="text-[10px] text-slate-500 leading-tight">${item.desc}</span>
+                    </div>
+                `;
+                gridContainer.appendChild(card);
+            });
+        }
+
+        function toggleShopItemSelection(playerNo, itemId) {
+            if (!personalShops[playerNo]) personalShops[playerNo] = [];
+            const idx = personalShops[playerNo].indexOf(itemId);
+            if (idx !== -1) {
+                personalShops[playerNo].splice(idx, 1);
+            } else {
+                if (personalShops[playerNo].length < 5) {
+                    personalShops[playerNo].push(itemId);
+                } else {
+                    SFX.error();
+                    statusBar.innerText = "You can only select up to 5 items for your shop!";
+                    return;
+                }
+            }
+            SFX.flip();
+            buildShopPickerUI();
+        }
+
+        function updatePlayerName(playerNum, val) {
+            playerSetups[playerNum - 1].name = val || `Explorer ${playerNum}`;
+        }
+
+        function selectCharacterClass(playerNum, classId) {
+            const chosen = HERO_CLASSES.find(c => c.id === classId);
+            playerSetups[playerNum - 1].classId = classId;
+            playerSetups[playerNum - 1].color = chosen.color;
+
+            HERO_CLASSES.forEach(cls => {
+                const btn = document.getElementById(`class-btn-${playerNum}-${cls.id}`);
+                if (btn) {
+                    if (cls.id === classId) {
+                        btn.className = "p-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all bg-indigo-950/30 border-indigo-500 text-indigo-300";
+                    } else {
+                        btn.className = "p-2 rounded-xl border flex flex-col items-center justify-center gap-1.5 transition-all bg-slate-900 border-slate-850 hover:border-slate-700 text-slate-400";
+                    }
+                }
+            });
+
+            const descEl = document.getElementById(`class-perk-desc-${playerNum}`);
+            if (descEl) descEl.innerText = `Ability: ${chosen.desc}`;
+            SFX.flip();
+        }
+
+        function logEvent(msg) {
+            const entry = document.createElement('div');
+            entry.className = "border-l-2 border-slate-800 pl-2 py-0.5";
+            entry.innerHTML = `<span class="text-slate-600 font-mono">[${new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}]</span> ${msg}`;
+            gameLog.prepend(entry);
+        }
+
+        function clearJournal() {
+            gameLog.innerHTML = `<div class="text-slate-600 italic">Journal cleared.</div>`;
+        }
+
+        function toggleCustomOptions() {
+            const element = document.getElementById('custom-options');
+            const wasHidden = element.classList.contains('hidden');
+            element.classList.toggle('hidden');
+            if (wasHidden) {
+                buildCardIndexEditor();
+                refreshBlueprintList();
+            }
+            SFX.unlock();
+        }
+
+        function hideCustomOptions() {
+            document.getElementById('custom-options').classList.add('hidden');
+        }
+
+        function startExpedition(mode) {
+            if (mode === 'custom') {
+                const totalW = Object.values(customCardWeights).reduce((sum, v) => sum + Math.max(0, Number(v) || 0), 0);
+                if (totalW <= 0) {
+                    SFX.error();
+                    alert('Your Custom Card Index has no active card types. Set at least one weight above 0 before embarking.');
+                    return;
+                }
+            }
+            currentMode = mode;
+            hideCustomOptions();
+            
+            // Validate all players have selected 5 shop items
+            for (let i = 1; i <= numPlayers; i++) {
+                if (!personalShops[i] || personalShops[i].length === 0) {
+                    personalShops[i] = SHOP_ITEMS_MASTER.slice(0, 5).map(it => it.id);
+                }
+            }
+
+            menuScreen.style.opacity = '0';
+            menuScreen.style.transform = 'translateY(-15px)';
+            
+            setTimeout(() => {
+                menuScreen.classList.add('hidden');
+                gameScreen.classList.remove('hidden');
+                setTimeout(() => {
+                    gameScreen.style.opacity = '1';
+                    gameScreen.style.transform = 'translateY(0)';
+                    initGame();
+                }, 50);
+            }, 300);
+        }
+
+        function initGame() {
+            grid.innerHTML = '';
+            gameLog.innerHTML = '';
+            gameActive = true;
+            currentPlayer = 1;
+            turnLocked = false;
+            lastCardEffect = null;
+            frozenPlayers.clear();
+            activePlayers = [];
+            flipCount = 0;
+            extraTurnActive = false;
+
+            let config = MODE_CONFIGS[currentMode] || MODE_CONFIGS.classic;
+            if (currentMode === 'custom') {
+                const hearts = Math.max(1, Number(document.getElementById('custom-starter-hearts').value || 4));
+                const deckSize = Math.max(10, Number(document.getElementById('custom-deck-size').value || 60));
+                const startGold = Math.max(0, Number(document.getElementById('custom-start-gold').value || 20));
+                const bullets = Math.max(0, Number(document.getElementById('custom-start-bullets').value || 0));
+                const mult = Math.max(0.5, Number(document.getElementById('custom-start-mult').value || 1.0));
+                const turnTime = Math.max(0, Number(document.getElementById('custom-turn-time').value || 0));
+                const shotgunCost = Math.max(1, Number(document.getElementById('custom-shotgun-cost').value || 2));
+                const shotgunCooldown = Math.max(0, Number(document.getElementById('custom-shotgun-cooldown').value || 2));
+                config = {
+                    label: 'Custom Expedition',
+                    cards: deckSize,
+                    hp: hearts,
+                    startGold,
+                    bullets,
+                    mult,
+                    timed: turnTime > 0,
+                    turnTime,
+                    shotgunCost,
+                    shotgunCooldown,
+                    weights: { ...customCardWeights }
+                };
+            }
+
+            document.getElementById('game-mode-label').innerText = config.label.toUpperCase();
+            document.getElementById('deck-counter').innerText = config.cards;
+
+            const timerDisplay = document.getElementById('turn-timer-display');
+            if (config.timed) {
+                timerDisplay.classList.remove('hidden');
+            } else {
+                timerDisplay.classList.add('hidden');
+            }
+
+            playerSetups.forEach((setup, index) => {
+                const playerNo = index + 1;
+                const heroClass = HERO_CLASSES.find(c => c.id === setup.classId);
+                let baseHp = config.hp;
+                let startGold = config.startGold !== undefined ? config.startGold : 20;
+                let startBullets = config.bullets !== undefined ? config.bullets : 0; // default player spawn with 0 bullets
+                let startMult = config.mult !== undefined ? config.mult : 1.0;
+
+                if (setup.classId === 'paladin') baseHp += 1;
+                if (setup.classId === 'rogue') startGold += 10;
+                if (setup.classId === 'gunslinger') startBullets = 2; // Gunslinger spawns with 2 bullets
+                if (setup.classId === 'berserker') startMult += 0.25;
+
+                state[playerNo] = {
+                    name: setup.name,
+                    classId: setup.classId,
+                    color: setup.color,
+                    hearts: baseHp,
+                    maxHearts: setup.classId === 'paladin' ? 6 : 5,
+                    gold: startGold,
+                    bullets: Math.min(startBullets, 6),
+                    maxBullets: 6,
+                    reloadCooldown: 0,
+                    coinMult: startMult,
+                    shotgunCost: config.shotgunCost || 2,
+                    shotgunCooldown: config.shotgunCooldown !== undefined ? config.shotgunCooldown : 2,
+                    items: []
+                };
+                activePlayers.push(playerNo);
+            });
+
+            let deck = [];
+            if (currentMode === 'chaos') {
+                const keys = Object.keys(CARD_TYPES);
+                while (deck.length < config.cards) {
+                    const picked = keys[Math.floor(Math.random() * keys.length)];
+                    deck.push(picked);
+                }
+            } else {
+                let weights = config.weights || {};
+                while (deck.length < config.cards) {
+                    const weightsList = Object.keys(weights).length > 0 ? weights : { SAFE: 45, GOLD: 15, SKULL: 15, VOID: 5, HEAL: 5, BULLET: 2, CHAOS: 5 };
+                    const totalWeight = Object.values(weightsList).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+                    let roll = Math.random() * totalWeight;
+                    let chosen = 'SAFE';
+
+                    for (const [key, val] of Object.entries(weightsList)) {
+                        roll -= Math.max(0, Number(val) || 0);
+                        if (roll <= 0) {
+                            chosen = key;
+                            break;
+                        }
+                    }
+                    deck.push(chosen);
+                }
+            }
+
+            deck.sort(() => Math.random() - 0.5);
+
+            deck.forEach((type, index) => {
+                const card = document.createElement('div');
+                card.className = 'card-container aspect-square w-full';
+                card.innerHTML = `
+                    <div class="card-inner w-full h-full" data-type="${type}" id="card-${index}">
+                        <div class="card-front text-sm font-black border-2">${index + 1}</div>
+                        <div class="card-back border-2 ${CARD_TYPES[type].class}">
+                            <i class="fas ${CARD_TYPES[type].icon} text-lg mb-1"></i>
+                            <span class="text-[8px] font-bold uppercase tracking-wider">${type}</span>
+                        </div>
+                    </div>
+                `;
+                card.addEventListener('click', () => handleFlip(index));
+                grid.appendChild(card);
+            });
+
+            renderPlayers();
+            renderShop();
+            updateUI();
+            announceTurn(1);
+            logEvent(`Expedition embarked on <b>${config.label}</b> with ${numPlayers} party members.`);
+        }
+
+        function renderPlayers() {
+            const container = document.getElementById('players-container');
+            const totalCols = activePlayers.length <= 3 ? activePlayers.length : 3;
+            container.className = `grid gap-4 w-full grid-cols-1 sm:grid-cols-${totalCols}`;
+
+            container.innerHTML = activePlayers.map(i => {
+                const p = state[i];
+                const heroClass = HERO_CLASSES.find(c => c.id === p.classId);
+                return `
+                    <div id="p${i}-ui" class="player-card bg-slate-900/40 border border-slate-800 p-4 rounded-2xl transition-all relative overflow-hidden">
+                        <div class="absolute -right-3 -bottom-3 text-slate-800/10 text-6xl">
+                            <i class="fas ${heroClass.icon}"></i>
+                        </div>
+
+                        <!-- SHOTGUN & RELOAD COOLDOWN -->
+                        <div class="flex items-center justify-between bg-slate-950/80 border border-slate-800 p-2 rounded-xl mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="p-1.5 bg-orange-950/60 text-orange-400 rounded-lg border border-orange-900/40">
+                                    <i class="fas fa-crosshairs text-xs"></i>
+                                </span>
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] uppercase tracking-wider text-slate-400 font-bold">Shotgun</span>
+                                    <span class="text-xs font-mono font-bold text-orange-300">
+                                        <span id="p${i}-bullets">${p.bullets}</span> / ${p.maxBullets} Bullets 
+                                        ${p.reloadCooldown > 0 ? `<span class="text-rose-400 text-[10px]">(Cooldown: ${p.reloadCooldown}t)</span>` : ''}
+                                    </span>
+                                </div>
+                            </div>
+                            <button onclick="fireShotgun(${i})" id="shotgun-btn-${i}" class="bg-orange-600 hover:bg-orange-500 disabled:opacity-40 disabled:hover:bg-orange-600 text-white text-xs font-bold px-3 py-1.5 rounded-lg shadow transition-all flex items-center gap-1.5" title="Requires configured bullets & no reload cooldown">
+                                <i class="fas fa-bullseye"></i> Fire
+                            </button>
+                        </div>
+
+                        <div class="flex items-center justify-between gap-4 mb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-2.5 h-2.5 rounded-full" style="background-color: ${p.color}"></span>
+                                <strong class="text-sm tracking-wide font-black" style="color: ${p.color}">${p.name}</strong>
+                                <span class="text-[10px] bg-slate-800/50 text-slate-400 border border-slate-700/50 px-1.5 py-0.5 rounded-md font-bold uppercase">${heroClass.name}</span>
+                            </div>
+                            <div id="p${i}-hearts" class="flex gap-1 text-rose-500"></div>
+                        </div>
+
+                        <div class="flex items-center justify-between">
+                            <div class="flex items-center gap-1.5 text-amber-400 font-black">
+                                <i class="fas fa-coins text-sm gold-anim"></i>
+                                <span id="p${i}-gold" class="text-lg">0</span>
+                                <span class="text-[9px] text-slate-500 font-mono">(<span id="p${i}-mult">1.0</span>x)</span>
+                            </div>
+                            <div id="p${i}-items" class="flex items-center gap-1"></div>
+                        </div>
+
+                        <div id="p${i}-status" class="mt-2 text-[10px] hidden font-bold flex items-center gap-1.5"></div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function fireShotgun(shooterNo, viaRelay = false) {
+            if (onlineMode && !viaRelay) {
+                if (currentPlayer !== myPlayerNo) {
+                    statusBar.innerText = "Wait for your turn!";
+                    return;
+                }
+                if (!isHost) {
+                    sendOnlineAction({ type: 'shoot' });
+                    return;
+                }
+                // isHost and it IS myPlayerNo's turn: fall through and execute directly
+            }
+            if (!gameActive || turnLocked) return;
+            const shooter = state[shooterNo];
+
+            const overclockIdx = shooter.items.findIndex(it => it.id === 'overclock');
+            const hasOverclock = overclockIdx !== -1;
+            const requiredBullets = hasOverclock ? 1 : (shooter.classId === 'assassin' ? Math.max(1, shooter.shotgunCost - 1) : shooter.shotgunCost);
+
+            if (shooter.reloadCooldown > 0 && !hasOverclock) {
+                SFX.error();
+                statusBar.innerText = `${shooter.name}'s shotgun is on reload cooldown (${shooter.reloadCooldown} turns left)!`;
+                return;
+            }
+            if (shooter.bullets < requiredBullets) {
+                SFX.error();
+                statusBar.innerText = `${shooter.name} needs at least ${requiredBullets} bullets to fire the shotgun!`;
+                return;
+            }
+
+            const rivals = activePlayers.filter(x => x !== shooterNo && state[x].hearts > 0);
+            if (rivals.length === 0) {
+                statusBar.innerText = "No other living targets available!";
+                return;
+            }
+
+            let targetNo = rivals[0];
+            if (rivals.length > 1) {
+                const choice = prompt(`Select target explorer number to shoot (${rivals.join(', ')}):`, rivals[0]);
+                targetNo = Number(choice);
+                if (!activePlayers.includes(targetNo) || targetNo === shooterNo) {
+                    targetNo = rivals[0];
+                }
+            }
+
+            shooter.bullets -= requiredBullets;
+            if (hasOverclock) {
+                shooter.items.splice(overclockIdx, 1);
+                shooter.reloadCooldown = 0;
+                logEvent(`<b>${shooter.name}</b>'s <span class="text-orange-300">Overclock Core</span> fired a free shot with no cooldown!`);
+            } else {
+                shooter.reloadCooldown = shooter.classId === 'assassin' ? Math.max(1, shooter.shotgunCooldown - 1) : shooter.shotgunCooldown;
+            }
+            const target = state[targetNo];
+            applyDamage(targetNo, 1);
+
+            SFX.shotgun();
+            const btn = document.getElementById(`shotgun-btn-${shooterNo}`);
+            if (btn) {
+                btn.classList.add('shotgun-firing');
+                setTimeout(() => btn.classList.remove('shotgun-firing'), 300);
+            }
+
+            logEvent(`💥 <b>${shooter.name}</b> fired their shotgun at <b>${target.name}</b>, dealing <span class="text-rose-400">-1 Heart</span>! (Reload Cooldown active)`);
+            
+            updateUI();
+
+            if (target.hearts <= 0) {
+                logEvent(`💀 <b>${target.name}</b> has been eliminated by shotgun fire!`);
+                nextTurn();
+            }
+        }
+
+        function handleFlip(index) {
+            if (onlineMode && !isHost) {
+                if (currentPlayer !== myPlayerNo) {
+                    statusBar.innerText = "Wait for your turn!";
+                    return;
+                }
+                const card = document.getElementById(`card-${index}`);
+                if (!card || card.classList.contains('flipped')) return;
+                sendOnlineAction({ type: 'flip', index });
+                return;
+            }
+            if (!gameActive || turnLocked) return;
+            const card = document.getElementById(`card-${index}`);
+            if (!card || card.classList.contains('flipped')) return;
+
+            if (state[currentPlayer].frozen) {
+                state[currentPlayer].frozen = false;
+                frozenPlayers.delete(currentPlayer);
+                logEvent(`<span class="text-indigo-400">${state[currentPlayer].name}</span> was <span class="text-blue-400">unfrozen</span> and spent this turn thawing.`);
+                SFX.error();
+                nextTurn();
+                return;
+            }
+
+            stopTurnTimer();
+            turnLocked = true;
+            card.classList.remove('revealed-peek');
+            card.classList.add('flipped');
+            
+            const type = card.getAttribute('data-type');
+            const data = CARD_TYPES[type];
+
+            flipCount++;
+            document.getElementById('deck-counter').innerText = document.querySelectorAll('.card-inner:not(.flipped)').length;
+
+            SFX.flip();
+            statusBar.innerText = data.desc;
+            statusBar.className = `mb-4 text-center font-black uppercase tracking-widest py-2 rounded-xl border ${data.class}`;
+
+            logEvent(`<b>${state[currentPlayer].name}</b> uncovered tile ${index + 1}: <span class="${data.class} px-1.5 py-0.5 rounded text-[11px] font-bold">${type}</span>`);
+
+            lastCardEffect = type;
+            processEffect(type);
+
+            if (gameActive) {
+                setTimeout(() => {
+                    nextTurn();
+                }, 1200);
+            }
+        }
+
+        function grantGold(playerNo, amount) {
+            const p = state[playerNo];
+            if (!p) return;
+            let finalAmount = amount;
+            const luckyIdx = p.items.findIndex(it => it.id === 'luckycoin');
+            if (luckyIdx !== -1) {
+                finalAmount = amount * 2;
+                p.items.splice(luckyIdx, 1);
+                logEvent(`<b>${p.name}</b>'s <span class="text-amber-300">Lucky Coin</span> doubled the haul to <span class="text-amber-400">${finalAmount} Gold</span>!`);
+            }
+            p.gold += finalAmount;
+        }
+
+        function applyDamage(playerNo, amount) {
+            const p = state[playerNo];
+            if (!p) return;
+            p.hearts -= amount;
+            if (p.hearts <= 0) {
+                const wardIdx = p.items.findIndex(it => it.id === 'wardward');
+                if (wardIdx !== -1) {
+                    p.items.splice(wardIdx, 1);
+                    p.hearts = 1;
+                    logEvent(`<b>${p.name}</b>'s <span class="text-yellow-300">Death Ward</span> flared, saving them at <span class="text-emerald-400">1 Heart</span>!`);
+                    SFX.heal();
+                }
+            }
+        }
+
+        function processEffect(type) {
+            const p = state[currentPlayer];
+            const data = CARD_TYPES[type];
+
+            const harmCards = ['SKULL', 'VOID', 'THIEF', 'VENOM', 'INFERNO', 'DOOM'];
+            if (harmCards.includes(type)) {
+                const shieldIdx = p.items.findIndex(it => it.id === 'shield');
+                if (shieldIdx !== -1) {
+                    p.items.splice(shieldIdx, 1);
+                    statusBar.innerText = "Shield Blocked Harmful Effects!";
+                    logEvent(`<b>${p.name}</b>'s Holy Shield <span class="text-sky-300">shattered</span> but absorbed the danger!`);
+                    SFX.heal();
+                    updateUI();
+                    return;
+                }
+            }
+
+            switch(type) {
+                case 'SAFE':
+                    grantGold(currentPlayer, Math.round((data.gold || 1) * p.coinMult));
+                    SFX.purchase();
+                    break;
+                case 'GOLD':
+                    let goldReward = data.gold;
+                    if (p.classId === 'alchemist') goldReward += 2;
+                    grantGold(currentPlayer, Math.round(goldReward * p.coinMult));
+                    SFX.victory();
+                    break;
+                case 'HEAL':
+                    p.hearts = Math.min(p.hearts + (data.heal || 1), p.maxHearts);
+                    SFX.heal();
+                    break;
+                case 'SKULL':
+                    applyDamage(currentPlayer, 1);
+                    if (p.classId === 'necromancer') {
+                        p.gold += 10;
+                        logEvent(`Necromancer trait siphoned <span class="text-amber-400">+10 Gold</span> from the skull.`);
+                    }
+                    SFX.damage();
+                    break;
+                case 'THIEF':
+                    const lost = Math.floor(p.gold * 0.12);
+                    p.gold -= lost;
+                    SFX.damage();
+                    logEvent(`Thief stole <span class="text-rose-400">${lost} Gold</span> (12%) from <b>${p.name}</b>.`);
+                    break;
+                case 'VOID':
+                    const hiddenSafes = Array.from(document.querySelectorAll('.card-inner:not(.flipped)'))
+                                            .filter(el => el.getAttribute('data-type') === 'SAFE' || el.getAttribute('data-type') === 'GOLD');
+                    for (let i = 0; i < Math.min(2, hiddenSafes.length); i++) {
+                        hiddenSafes[i].classList.add('flipped', 'opacity-35');
+                    }
+                    SFX.damage();
+                    logEvent(`Two unrevealed safe treasure chambers collapsed into the <span class="text-slate-400">Void</span>.`);
+                    break;
+                case 'CHAOS':
+                    reshuffleBoard();
+                    SFX.unlock();
+                    break;
+                case 'CRYSTAL':
+                    grantGold(currentPlayer, Math.round((data.gold || 8) * p.coinMult));
+                    SFX.victory();
+                    break;
+                case 'VENOM':
+                    applyDamage(currentPlayer, 1);
+                    if (p.classId !== 'druid') {
+                        p.frozen = true;
+                        frozenPlayers.add(currentPlayer);
+                    } else {
+                        logEvent(`<b>${p.name}</b>'s Druid nature resisted the Venom's freeze.`);
+                    }
+                    SFX.damage();
+                    break;
+                case 'RIFT':
+                    reshuffleBoard();
+                    SFX.unlock();
+                    logEvent(`The space-time rift <span class="text-indigo-400">rotated and shuffled</span> all unopened cards.`);
+                    break;
+                case 'MEND':
+                    p.hearts = Math.min(p.hearts + 2, p.maxHearts);
+                    SFX.heal();
+                    break;
+                case 'WIND':
+                    extraTurnActive = true;
+                    SFX.unlock();
+                    break;
+                case 'BARRIER':
+                    p.items.push({ id: 'shield', name: 'Holy Shield' });
+                    SFX.heal();
+                    break;
+                case 'FORTUNE':
+                    grantGold(currentPlayer, Math.round((data.gold || 8) * p.coinMult));
+                    SFX.victory();
+                    break;
+                case 'PHANTOM':
+                    applySpecificPeek(1);
+                    SFX.unlock();
+                    break;
+                case 'ORACLE':
+                    applySpecificPeek(5);
+                    SFX.unlock();
+                    break;
+                case 'BULLET':
+                    p.bullets = Math.min(p.maxBullets, p.bullets + (data.bullets || 1));
+                    SFX.purchase();
+                    break;
+                case 'SWAP':
+                    const liveCompanions = activePlayers.filter(x => x !== currentPlayer);
+                    if (liveCompanions.length > 0) {
+                        const peer = liveCompanions[Math.floor(Math.random() * liveCompanions.length)];
+                        const tempH = p.hearts;
+                        const tempG = p.gold;
+                        const tempI = p.items;
+                        p.hearts = state[peer].hearts;
+                        p.gold = state[peer].gold;
+                        p.items = state[peer].items;
+                        state[peer].hearts = tempH;
+                        state[peer].gold = tempG;
+                        state[peer].items = tempI;
+                        logEvent(`Mysterious winds traded stats of <b>${p.name}</b> & <b>${state[peer].name}</b>.`);
+                        SFX.unlock();
+                    }
+                    break;
+                case 'COINBOOST':
+                    p.coinMult += (data.multAdd || 0.20);
+                    SFX.victory();
+                    logEvent(`<b>${p.name}</b> found a Coin Boost card! Multiplier is now <span class="text-amber-400">${p.coinMult.toFixed(2)}x</span>.`);
+                    break;
+                case 'INFERNO':
+                    applyDamage(currentPlayer, 1);
+                    p.gold = Math.max(0, p.gold - 10);
+                    SFX.damage();
+                    logEvent(`Inferno scorched <b>${p.name}</b> for <span class="text-rose-400">-1 Heart & -10 Gold</span>.`);
+                    break;
+                case 'BLESSING':
+                    p.hearts = Math.min(p.hearts + 2, p.maxHearts);
+                    SFX.heal();
+                    break;
+                case 'PLUNDER':
+                    grantGold(currentPlayer, Math.round((data.gold || 12) * p.coinMult));
+                    SFX.victory();
+                    break;
+                case 'DOOM':
+                    applyDamage(currentPlayer, 2);
+                    SFX.damage();
+                    logEvent(`Doom Shroud crushed <b>${p.name}</b> for <span class="text-rose-400">-2 Hearts</span>.`);
+                    break;
+            }
+
+            updateUI();
+        }
+
+        function nextTurn() {
+            stopTurnTimer();
+            activePlayers = activePlayers.filter(i => {
+                if (state[i].hearts <= 0) {
+                    logEvent(`<b>${state[i].name}</b> has succumbed to their wounds and fallen.`);
+                    return false;
+                }
+                return true;
+            });
+
+            if (activePlayers.length === 1 && numPlayers > 1) {
+                endGame(activePlayers[0]);
+                return;
+            } else if (activePlayers.length === 0) {
+                endGame(null);
+                return;
+            }
+
+            const remaining = document.querySelectorAll('.card-inner:not(.flipped)').length;
+            if (remaining === 0) {
+                let maxGold = -1;
+                let champ = activePlayers[0];
+                activePlayers.forEach(i => {
+                    if (state[i].gold > maxGold) {
+                        maxGold = state[i].gold;
+                        champ = i;
+                    }
+                });
+                endGame(champ);
+                return;
+            }
+
+            // Decrement reload cooldown for current player
+            if (state[currentPlayer].reloadCooldown > 0) {
+                state[currentPlayer].reloadCooldown--;
+            }
+
+            if (extraTurnActive) {
+                extraTurnActive = false;
+                logEvent(`<b>${state[currentPlayer].name}</b> capitalizes on their double-action!`);
+                announceTurn(currentPlayer);
+                updateUI();
+                turnLocked = false;
+                startTurnTimer();
+                return;
+            }
+
+            const currentIdx = activePlayers.indexOf(currentPlayer);
+            const nextIdx = (currentIdx + 1) % activePlayers.length;
+            currentPlayer = activePlayers[nextIdx];
+
+            announceTurn(currentPlayer);
+            updateUI();
+            turnLocked = false;
+            startTurnTimer();
+        }
+
+        function startTurnTimer() {
+            const config = currentMode === 'custom' ? { timed: Number(document.getElementById('custom-turn-time').value || 0) > 0, turnTime: Number(document.getElementById('custom-turn-time').value || 30) } : MODE_CONFIGS[currentMode];
+            if (!config || !config.timed) return;
+
+            timeLeft = Math.max(1, Number(config.turnTime) || 30);
+            const timerVal = document.getElementById('timer-val');
+            if (timerVal) timerVal.innerText = timeLeft;
+
+            turnTimer = setInterval(() => {
+                timeLeft--;
+                if (timerVal) timerVal.innerText = timeLeft;
+                if (timeLeft <= 0) {
+                    stopTurnTimer();
+                    logEvent(`⏱️ <b>${state[currentPlayer].name}</b> ran out of time! Turn skipped.`);
+                    SFX.error();
+                    nextTurn();
+                }
+            }, 1000);
+        }
+
+        function stopTurnTimer() {
+            if (turnTimer) {
+                clearInterval(turnTimer);
+                turnTimer = null;
+            }
+        }
+
+        function reshuffleBoard() {
+            const closedCards = Array.from(document.querySelectorAll('.card-inner:not(.flipped)'));
+            const contents = closedCards.map(c => c.getAttribute('data-type')).sort(() => Math.random() - 0.5);
+            closedCards.forEach((c, idx) => {
+                const updatedType = contents[idx];
+                c.setAttribute('data-type', updatedType);
+                const back = c.querySelector('.card-back');
+                back.className = `card-back border-2 ${CARD_TYPES[updatedType].class}`;
+                back.querySelector('i').className = `fas ${CARD_TYPES[updatedType].icon} text-lg mb-1`;
+                back.querySelector('span').innerText = updatedType;
+            });
+        }
+
+        function applySpecificPeek(quantity) {
+            const targets = Array.from(document.querySelectorAll('.card-inner:not(.flipped)'))
+                                 .sort(() => 0.5 - Math.random())
+                                 .slice(0, quantity);
+            targets.forEach(el => {
+                el.classList.add('revealed-peek');
+                setTimeout(() => {
+                    el.classList.remove('revealed-peek');
+                }, 3000);
+            });
+        }
+
+        function applyDangerRadar(quantity) {
+            const dangerTypes = ['SKULL', 'VOID', 'THIEF', 'VENOM', 'INFERNO', 'DOOM'];
+            const targets = Array.from(document.querySelectorAll('.card-inner:not(.flipped)'))
+                                 .filter(el => dangerTypes.includes(el.getAttribute('data-type')))
+                                 .sort(() => 0.5 - Math.random())
+                                 .slice(0, quantity);
+            targets.forEach(el => {
+                el.classList.add('revealed-peek');
+                el.style.filter = 'brightness(1.25) drop-shadow(0 0 12px rgba(244, 63, 94, 0.7))';
+                setTimeout(() => {
+                    el.classList.remove('revealed-peek');
+                    el.style.filter = '';
+                }, 4000);
+            });
+            if (targets.length > 0) {
+                logEvent(`Danger Radar pinged <b>${targets.length}</b> lurking threat${targets.length > 1 ? 's' : ''} on the board.`);
+            } else {
+                logEvent(`Danger Radar found no remaining threats to flag.`);
+            }
+        }
+
+        function announceTurn(playerNo) {
+            const p = state[playerNo];
+            turnText.innerText = p.name.toUpperCase();
+            turnText.style.color = p.color;
+            turnOverlay.classList.remove('opacity-0', 'pointer-events-none');
+            setTimeout(() => {
+                turnOverlay.classList.add('opacity-0', 'pointer-events-none');
+            }, 800);
+        }
+
+        function updateUI() {
+            for (let i = 1; i <= numPlayers; i++) {
+                const p = state[i];
+                if (!p) continue;
+
+                const cardBox = document.getElementById(`p${i}-ui`);
+                const heartsNode = document.getElementById(`p${i}-hearts`);
+                const goldNode = document.getElementById(`p${i}-gold`);
+                const multNode = document.getElementById(`p${i}-mult`);
+                const bulletsNode = document.getElementById(`p${i}-bullets`);
+                const itemsNode = document.getElementById(`p${i}-items`);
+                const statusNode = document.getElementById(`p${i}-status`);
+                const shotgunBtn = document.getElementById(`shotgun-btn-${i}`);
+
+                if (!cardBox) continue;
+
+                if (heartsNode) {
+                    heartsNode.innerHTML = Array(Math.max(0, p.hearts))
+                        .fill('<i class="fas fa-heart text-xs animate-pulse"></i>')
+                        .join('');
+                }
+
+                if (goldNode) goldNode.innerText = p.gold;
+                if (multNode) multNode.innerText = p.coinMult.toFixed(2);
+                if (bulletsNode) bulletsNode.innerText = p.bullets;
+
+                if (shotgunBtn) {
+                    const hasOverclock = p.items.some(it => it.id === 'overclock');
+                    const bulletsNeeded = hasOverclock ? 1 : (p.classId === 'assassin' ? Math.max(1, p.shotgunCost - 1) : p.shotgunCost);
+                    shotgunBtn.disabled = p.bullets < bulletsNeeded || (p.reloadCooldown > 0 && !hasOverclock) || i !== currentPlayer;
+                }
+
+                if (itemsNode) {
+                    itemsNode.innerHTML = p.items.map(it => {
+                        let colorClass = 'text-sky-400';
+                        let iconClass = 'fa-shield-halved';
+                        if (it.id === 'scanner') { iconClass = 'fa-eye'; colorClass = 'text-emerald-400'; }
+                        if (it.id === 'bulletpack') { iconClass = 'fa-crosshairs'; colorClass = 'text-orange-400'; }
+                        if (it.id === 'coinmult') { iconClass = 'fa-coins'; colorClass = 'text-amber-400'; }
+                        if (it.id === 'wardward') { iconClass = 'fa-cross'; colorClass = 'text-yellow-300'; }
+                        if (it.id === 'luckycoin') { iconClass = 'fa-star'; colorClass = 'text-amber-300'; }
+                        if (it.id === 'overclock') { iconClass = 'fa-gauge-high'; colorClass = 'text-orange-300'; }
+                        return `<i class="fas ${iconClass} ${colorClass} text-xs border border-slate-800 bg-slate-950 p-1.5 rounded-lg" title="${it.name}"></i>`;
+                    }).join('');
+                }
+
+                if (statusNode) {
+                    if (p.frozen) {
+                        statusNode.innerHTML = `<i class="fas fa-snowflake text-blue-400"></i> <span class="text-blue-400">FROZEN</span>`;
+                        statusNode.classList.remove('hidden');
+                    } else if (p.hearts <= 0) {
+                        statusNode.innerHTML = `<i class="fas fa-ghost text-rose-500"></i> <span class="text-rose-500">FALLEN</span>`;
+                        statusNode.classList.remove('hidden');
+                    } else {
+                        statusNode.classList.add('hidden');
+                    }
+                }
+
+                if (i === currentPlayer && p.hearts > 0) {
+                    cardBox.classList.add('active-player-glow');
+                    cardBox.style.borderColor = p.color;
+                } else {
+                    cardBox.classList.remove('active-player-glow');
+                    cardBox.style.borderColor = 'transparent';
+                }
+            }
+
+            const pCurrent = state[currentPlayer];
+            if (pCurrent) {
+                document.getElementById('shop-buyer-name').innerText = pCurrent.name.toUpperCase();
+                document.getElementById('shop-buyer-name').style.color = pCurrent.color;
+                document.getElementById('shop-buyer-gold').innerText = pCurrent.gold;
+            }
+            renderShop();
+
+            if (onlineMode && isHost) broadcastState();
+        }
+
+        function renderShop() {
+            const container = document.getElementById('shop-container');
+            const pCurrent = state[currentPlayer];
+            if (!pCurrent) return;
+
+            const pickedIds = personalShops[currentPlayer] || [];
+            const enabledList = SHOP_ITEMS_MASTER.filter(it => pickedIds.includes(it.id));
+
+            container.innerHTML = enabledList.map(item => `
+                <button onclick="purchaseShopItem('${item.id}')" class="w-full bg-slate-950/40 hover:bg-slate-900 border border-slate-800 hover:border-slate-700/80 p-3 rounded-xl flex items-center justify-between transition-all group">
+                    <div class="flex items-center gap-2.5 text-left">
+                        <span class="p-2 bg-slate-900 border border-slate-800 rounded-lg group-hover:border-slate-700">
+                            <i class="fas ${item.icon} ${item.color} text-xs"></i>
+                        </span>
+                        <div class="flex flex-col">
+                            <span class="text-xs font-bold text-slate-100 group-hover:text-indigo-400 transition-colors">${item.name}</span>
+                            <span class="text-[9px] text-slate-500">${item.desc}</span>
+                        </div>
+                    </div>
+                    <span class="text-xs font-mono font-bold text-amber-400 bg-amber-500/10 border border-amber-500/20 px-2 py-1 rounded-lg">
+                        ${item.cost}g
+                    </span>
+                </button>
+            `).join('');
+
+            if (enabledList.length === 0) {
+                container.innerHTML = `<div class="text-slate-500 text-xs italic text-center py-6">No shop items configured for this explorer.</div>`;
+            }
+        }
+
+        function purchaseShopItem(itemId) {
+            if (onlineMode && !isHost) {
+                if (currentPlayer !== myPlayerNo) {
+                    statusBar.innerText = "Wait for your turn!";
+                    return;
+                }
+                sendOnlineAction({ type: 'buy', itemId });
+                return;
+            }
+            if (turnLocked || !gameActive) return;
+            const p = state[currentPlayer];
+            const item = SHOP_ITEMS_MASTER.find(it => it.id === itemId);
+            if (!item) {
+                SFX.error();
+                statusBar.innerText = 'Invalid shop item.';
+                return;
+            }
+
+            if (p.gold < item.cost) {
+                SFX.error();
+                statusBar.innerText = "Insufficient riches!";
+                return;
+            }
+
+            p.gold -= item.cost;
+            SFX.purchase();
+            logEvent(`<b>${p.name}</b> procured <span class="text-indigo-400">${item.name}</span>.`);
+
+            if (itemId === 'shield') {
+                p.items.push({ id: 'shield', name: 'Holy Shield' });
+            } else if (itemId === 'elixir') {
+                p.hearts = Math.min(p.hearts + 1, p.maxHearts);
+            } else if (itemId === 'scanner') {
+                applyBoardScanner(4);
+            } else if (itemId === 'bulletpack') {
+                p.bullets = Math.min(p.maxBullets, p.bullets + 2);
+            } else if (itemId === 'coinmult') {
+                p.coinMult += 0.15;
+                p.items.push({ id: 'coinmult', name: 'Coin Stack (+0.15)' });
+            } else if (itemId === 'peek') {
+                applySpecificPeek(8);
+            } else if (itemId === 'dice') {
+                if (Math.random() < 0.5) {
+                    p.hearts = Math.min(p.hearts + 1, p.maxHearts);
+                    logEvent(`Chaos Dice gave <b>${p.name}</b> <span class="text-emerald-400">+1 Heart</span>!`);
+                } else {
+                    applyDamage(currentPlayer, 1);
+                    logEvent(`Chaos Dice took <span class="text-rose-400">1 Heart</span> from <b>${p.name}</b>.`);
+                }
+            } else if (itemId === 'adrenaline') {
+                extraTurnActive = true;
+                logEvent(`<b>${p.name}</b> injected Adrenaline for an extra turn!`);
+            } else if (itemId === 'armor') {
+                p.maxHearts += 1;
+                p.hearts = Math.min(p.hearts + 1, p.maxHearts);
+                logEvent(`<b>${p.name}</b> increased max hearts to ${p.maxHearts}.`);
+            } else if (itemId === 'wardward') {
+                p.items.push({ id: 'wardward', name: 'Death Ward' });
+            } else if (itemId === 'luckycoin') {
+                p.items.push({ id: 'luckycoin', name: 'Lucky Coin' });
+            } else if (itemId === 'overclock') {
+                p.items.push({ id: 'overclock', name: 'Overclock Core' });
+            } else if (itemId === 'radar') {
+                applyDangerRadar(3);
+            } else if (itemId === 'freeze') {
+                const rivals = activePlayers.filter(x => x !== currentPlayer && state[x].hearts > 0);
+                if (rivals.length > 0) {
+                    let targetNo = rivals[0];
+                    if (rivals.length > 1) {
+                        const choice = prompt(`Select target explorer to freeze (${rivals.join(', ')}):`, rivals[0]);
+                        targetNo = Number(choice);
+                        if (!activePlayers.includes(targetNo) || targetNo === currentPlayer) targetNo = rivals[0];
+                    }
+                    state[targetNo].frozen = true;
+                    frozenPlayers.add(targetNo);
+                    logEvent(`<b>${p.name}</b> set a Frost Trap, freezing <b>${state[targetNo].name}</b>'s next turn.`);
+                } else {
+                    logEvent(`No valid rival to freeze.`);
+                }
+            } else if (itemId === 'heist') {
+                const rivals = activePlayers.filter(x => x !== currentPlayer && state[x].hearts > 0);
+                if (rivals.length > 0) {
+                    const targetNo = rivals[Math.floor(Math.random() * rivals.length)];
+                    const tempGold = p.gold;
+                    p.gold = state[targetNo].gold;
+                    state[targetNo].gold = tempGold;
+                    logEvent(`<b>${p.name}</b> pulled off a Black Market Heist, swapping gold with <b>${state[targetNo].name}</b>!`);
+                } else {
+                    logEvent(`No valid rival available for the heist.`);
+                }
+            } else if (itemId === 'glove') {
+                const rivals = activePlayers.filter(x => x !== currentPlayer);
+                if (rivals.length > 0) {
+                    let targetNo = rivals[0];
+                    if (rivals.length > 1) {
+                        const choice = prompt(`Select target explorer to steal 15% gold from (${rivals.join(', ')}):`, rivals[0]);
+                        targetNo = Number(choice);
+                        if (!activePlayers.includes(targetNo) || targetNo === currentPlayer) targetNo = rivals[0];
+                    }
+                    const stolen = Math.floor(state[targetNo].gold * 0.15);
+                    state[targetNo].gold -= stolen;
+                    p.gold += stolen;
+                    logEvent(`<b>${p.name}</b> used glove to steal <span class="text-amber-400">${stolen} Gold</span> from <b>${state[targetNo].name}</b>.`);
+                }
+            }
+
+            updateUI();
+        }
+
+        function applyBoardScanner(quantity = 4) {
+            const elements = Array.from(document.querySelectorAll('.card-inner:not(.flipped)'))
+                                 .filter(el => el.getAttribute('data-type') === 'SAFE' || el.getAttribute('data-type') === 'GOLD')
+                                 .slice(0, quantity);
+            elements.forEach(el => {
+                el.classList.add('flipped');
+                const type = el.getAttribute('data-type');
+                state[currentPlayer].gold += Math.round((CARD_TYPES[type].gold || 1) * state[currentPlayer].coinMult);
+            });
+            logEvent(`Scanning map revealed and cleared 4 safe paths.`);
+        }
+
+        function endGame(winner) {
+            stopTurnTimer();
+            gameActive = false;
+            SFX.victory();
+
+            const modal = document.getElementById('end-modal');
+            const title = document.getElementById('modal-title');
+            const body = document.getElementById('modal-body');
+            const icon = document.getElementById('modal-icon');
+
+            modal.classList.remove('hidden');
+
+            if (winner === null) {
+                icon.innerHTML = `<i class="fas fa-skull-crossbones text-rose-500"></i>`;
+                title.innerText = "EXPEDITION LOST";
+                body.innerText = "The curses claimed all expedition members before the ruins could be fully explored.";
+            } else {
+                const champ = state[winner];
+                icon.innerHTML = `<i class="fas fa-crown text-amber-400"></i>`;
+                title.innerText = `${champ.name} WINS`;
+                title.style.color = champ.color;
+                body.innerText = `${champ.name} emerged as the ultimate explorer with ${champ.gold} Gold, surviving the perilous journey!`;
+            }
+
+            if (onlineMode && isHost) broadcastState({ winnerNo: winner === null ? 'NONE' : winner });
+        }
+
+        function backToMenu() {
+            stopTurnTimer();
+            if (onlineMode) {
+                if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+                if (actionsUnsub) { actionsUnsub(); actionsUnsub = null; }
+                onlineMode = false;
+                isHost = false;
+                myPlayerNo = null;
+                roomCode = null;
+                roomDocRef = null;
+                guestBoardBuilt = false;
+                guestEndShown = false;
+                const idleView = document.getElementById('online-idle-view');
+                const statusView = document.getElementById('online-status-view');
+                if (idleView) idleView.classList.remove('hidden');
+                if (statusView) statusView.classList.add('hidden');
+            }
+            gameScreen.style.opacity = '0';
+            setTimeout(() => {
+                gameScreen.classList.add('hidden');
+                document.getElementById('end-modal').classList.add('hidden');
+                menuScreen.classList.remove('hidden');
+                menuScreen.style.opacity = '1';
+                menuScreen.style.transform = 'translateY(0)';
+            }, 300);
+        }
+
+        window.addEventListener('error', (event) => {
+            console.error('Cursed Card runtime error:', event.error || event.message);
+            const bar = document.getElementById('status-bar');
+            if (bar) {
+                bar.innerText = 'Game error: ' + (event.message || 'Unknown error') + ' — press F12 for details.';
+                bar.className = 'mb-4 text-center font-black uppercase tracking-widest py-2 rounded-xl border type-skull';
+            }
+        });
+
+        window.onload = () => {
+            selectPlayers(2);
+            loadBlueprintsFromStorage();
+        };
+    </script>
+</body>
+</html>
